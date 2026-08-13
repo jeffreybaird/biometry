@@ -21,25 +21,29 @@ module Biometry
 
         STANDARD = :hadlock
 
+        # The manifest is frozen and the formula id is fixed for the life of
+        # the instance, so the row and its parsed equation are resolved once
+        # here rather than on every call. Equation.parse is pure and its result
+        # frozen, so this is the same arithmetic with one parse instead of N.
         def initialize(manifest:, formula:)
           @formulas = manifest[:efw_formulas]
           @citation = manifest.dig(:source, :citation)
           @formula = formula
+          @row = @formulas[formula]
+          @required = @row[:requires].map(&:to_sym) if @row
+          @equation = Equation.parse(@row[:equation]) if @row
         end
 
         def call(scan)
-          row = formulas[formula]
           return unsupported unless row
+          return insufficient(scan) unless scan.supports?(required)
 
-          required = row[:requires].map(&:to_sym)
-          return insufficient(scan, required) unless scan.supports?(required)
-
-          Success(estimate(scan, row, required))
+          Success(estimate(scan))
         end
 
         private
 
-        attr_reader :formulas, :formula, :citation
+        attr_reader :formulas, :formula, :citation, :row, :required, :equation
 
         def available = formulas.keys
 
@@ -47,19 +51,18 @@ module Biometry
           Failure([:unsupported_standard, { requested: formula, available: available }])
         end
 
-        def insufficient(scan, required)
+        def insufficient(scan)
           Failure([:insufficient_data, { required: required, given: scan.kinds }])
         end
 
-        def estimate(scan, row, required)
-          Estimate.new(value: grams(scan, row, required), unit: 'g', formula: formula,
+        def estimate(scan)
+          Estimate.new(value: grams(scan), unit: 'g', formula: formula,
                        inputs: required, source: provenance,
                        uncertainty: Uncertainty.pooled(row[:sd_pct]))
         end
 
-        def grams(scan, row, required)
-          centimetres = required.to_h { |kind| [kind, scan.cm(kind)] }
-          10**Equation.parse(row[:equation]).evaluate(centimetres)
+        def grams(scan)
+          10**equation.evaluate(required.to_h { |kind| [kind, scan.cm(kind)] })
         end
 
         def provenance
