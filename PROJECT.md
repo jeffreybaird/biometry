@@ -492,20 +492,59 @@ support, and return all of them. Selecting one is the caller's job.
 Missing a required parameter is `Failure([:insufficient_data, ...])` naming
 what was missing — not a skipped formula, not a substituted value.
 
-Fixtures already in the manifests:
+**Status: done.** `Equation`, `Hadlock`, `Intergrowth`, `AllFormulas`, 60
+examples. Two formulas are offered — `hc_ac_fl` and `intergrowth`.
 
-- INTERGROWTH: AC 26 cm, HC 29 cm -> log(EFW) 7.312292, EFW 1499 g
-- Hadlock `hc_ac_fl`: the microcephalic case from the 1985 discussion
-  (BPD 5.7, HC 21.3, AC 28.5, FL 7.5 cm) -> 2415 g against an actual birth
-  weight of 2250 g, a 7.3% error. The paper reports a BPD+AC model missing the
-  same fetus by 46.8%, making this a regression test for formula selection
-  rather than just arithmetic.
+### Coefficients are parsed, not transcribed
 
-**Report error by stratum, not pooled.** Hadlock 1985 Table I gives mean
-deviation and SD by birth-weight band, and the errors are asymmetric: the
-recommended formula runs about 4.6% low below 1500 g and 6.3% high above
-4000 g. Since the point of this tool is the tails, the pooled 7.5% SD
-understates uncertainty in exactly the cases that matter.
+`data/hadlock.yml` publishes no `coefficients:` block. The numbers exist only
+inside the `equation:` strings, so `Equation` parses them; retyping one into
+Ruby would be supplying a clinical constant from outside `data/`.
+
+The grammar is closed — a sum of signed terms, each a number optionally
+multiplied by named variables — and refuses anything else rather than
+understanding part of it. That refusal is load-bearing: INTERGROWTH's equation
+has parentheses, a cube and a natural log, and a lenient parser would turn it
+into a plausible wrong number. INTERGROWTH is built from its `coefficients:`
+block instead, with the functional form in code.
+
+### Three of the four Hadlock rows are withheld
+
+`hc_ac_fl` is the only one with confirmation outside this project's own
+transcription (LOINC 11746-5, INTERGROWTH 2021). The rest carry
+`verified: false` and are not offered.
+
+**`ReferenceData` does not enforce that.** `refuse_unverified` reads the
+top-level `verified` key only, so nested flags are inert until a service
+honours them. `Hadlock` is the enforcement point, returning
+`:unsupported_standard` with `available:` listing the verified ids. An
+unverified row is reported rather than raised on: the file is sound and one row
+within it is withheld, which a caller can act on.
+
+**Slice 4 inherits this.** Four adapters will each need to honour the same
+flags, which is the seam defect ARTIFACTS.md warns about. Pin a shared guard
+before forking, or accept four copies and have the reviewer check for it.
+
+### The withdrawn fixture
+
+A `microcephalic fetus from the 1985 discussion` fixture claiming 2415 g was
+deleted on 2026-08-13: its own inputs give 1951.6 g under `hc_ac_fl`, and no
+formula in the file produces 2415 g from them. See `known_issues`
+`microcephalic_fixture_withdrawn`. INTERGROWTH's worked example — AC 26 cm,
+HC 29 cm -> 1499 g — is now the only published anchor in this slice, and it
+reproduces within the manifest's 1 g tolerance.
+
+### Not built: error by stratum
+
+PROJECT.md previously called for reporting error by birth-weight band rather
+than pooled, on the grounds that the pooled 7.5% SD understates uncertainty in
+the tails, which is where this tool is aimed. That still holds as a goal and is
+still not implementable: `data/hadlock.yml`'s `accuracy:` block is a prose note
+quoting two figures, not the Table I breakdown. The table is not in `data/`.
+
+Pooled `sd_pct` is structured and present, but neither `Estimate` nor
+`Provenance` has a member for uncertainty, so it currently reaches no caller.
+Both are open before slice 5 renders anything.
 
 ---
 
@@ -608,17 +647,26 @@ scrape numbers out of prose.
 0. scaffolding + shared types + loader     done, committed
 1. gestational age                         ready
 2. redating                                ready; acog_redating.yml verified 2026-08-13
-3. EFW                                     ready; independent of 1 and 2
-4. percentiles                             depends on 3; parallel fan-out candidate
+3. EFW                                     done; 2 of 5 formulas offered
+4. percentiles                             blocked on bpd_hc_ac_fl; fan-out candidate
 5. presentation                            depends on 1, 3 and 4
 6. HL7                                     independent; do last
 ```
 
-Start with 3. It is unblocked, it exercises the `data/` loading path everything
-downstream depends on, and its fixtures are already written — it is also what
-turns four of the 8 pending entries in the harness green.
+Slice 3 is done. Slice 4 is the natural next step but is **partly blocked**:
+the Hadlock 1991 chart pairs with `bpd_hc_ac_fl`, which carries
+`verified: false`. Re-read Table II's fourth row in the 1985 PDF and set the
+flag before that adapter is built. The INTERGROWTH, NICHD and WHO adapters are
+unaffected — they pair with `intergrowth` and `hc_ac_fl`, both offered.
 
-Two decisions to make before slice 4 forks, both recorded above rather than
-left to four adapters: where INTERGROWTH's paired formula comes from, given
-`intergrowth21.yml` does not state one, and whether `Estimate`'s `:method`
-member gets renamed.
+Four decisions to make before slice 4 forks, all recorded above rather than
+left to four adapters to answer four ways:
+
+1. The interpolation rule, between weeks and between centiles.
+2. How adapters honour the per-row `verified` flags — shared guard or four
+   copies plus a review check.
+3. Where INTERGROWTH's paired formula comes from, given `intergrowth21.yml`
+   states none.
+4. Whether `Estimate`'s `:method` member gets renamed to `:formula`. Slice 3
+   put it in every result, so this is now wider than it was, but still small:
+   one member, one slice 0 spec, four slice 3 specs.
