@@ -735,6 +735,71 @@ its standard. No label is printed at all.
 Per the CLI contract in `CLAUDE.md`: stdout, `--json` undecorated, colour and
 alignment only when `$stdout.tty?`.
 
+### Pinned before spec-writer — decided 2026-08-13
+
+**The mock above is stale.** It predates slices 1, 3 and 4 and is wrong in four
+ways: CRL and biometry dating are deferred, there is no `[established]`
+concept until slice 2, unstratified NICHD returns four charts rather than one,
+and `Estimate#uncertainty` did not exist when it was drawn. Corrected shape:
+
+```
+Dating
+  LMP (28d cycle)     EDD 2026-10-08   32w0d
+  Transfer (day 5)    EDD 2026-10-05   32w2d
+  CRL                 unavailable — no dating standard in data/
+  Biometry            unavailable — no dating standard in data/
+
+Growth    GA 32w0d    AC 27.4  HC 29.1  FL 6.2  BPD 8.2 cm
+
+  INTERGROWTH-21st  2,180 g    —      11th   prescriptive
+  Hadlock 1991      2,240 g  ±7.4%     8th   reference
+  WHO (female)      2,215 g  ±7.5%    10th   reference
+  NICHD (white)     2,215 g  ±7.5%     9th   prescriptive
+  NICHD (black)     2,215 g  ±7.5%    19th   prescriptive
+  NICHD (hispanic)  2,215 g  ±7.5%    15th   prescriptive
+  NICHD (asian)     2,215 g  ±7.5%    20th   prescriptive
+
+  SD is pooled; per-stratum figures are not transcribed.
+  Sources: Stirnemann 2017; Hadlock 1985/1991; Kiserud 2017; Buck Louis 2015
+```
+
+**NICHD prints all four charts whenever no stratum is supplied.** The spread is
+the paper's headline finding and the reason this tool exists; hiding it behind
+a flag would make the default output understate the disagreement. Supply a
+stratum and it is one row like any other standard.
+
+**Uncertainty prints per row.** Otherwise the member reaches no caller and the
+slice 3 work is inert. INTERGROWTH renders `—`: its 7.6% is a mean absolute
+prediction error, not an SD, and printing it in an SD column would attribute a
+figure to the paper it never gave. A footnote states that every SD shown is
+pooled, because pooled understates error in the tails, which is where this tool
+gets read.
+
+**Refusals print.** Slice 1 refuses CRL and biometry rather than omitting them
+so a reader can tell "this library cannot do that yet" from "your inputs did
+not support it"; a silently short table throws that away and looks complete
+when it is not. The same applies to a growth row that fails — a
+`:formula_chart_mismatch` is printed as such, never dropped.
+
+**Presentation returns strings; it does not write them.** `exe/` and `cli/` own
+the streams. That keeps colour and alignment decisions testable without
+capturing stdout, and TTY-ness arrives as an argument rather than being sniffed
+from a global.
+
+**Business logic stays out.** `presentation/` renders values it is handed —
+`DatingEstimate`, `Estimate`, `Percentile`, and the Failures beside them. It
+computes no weight, reads no manifest and calls no service. `cli/` composes.
+
+**Text rounds, JSON does not.** The table prints a percentile as a whole-number
+ordinal (`4.3` → `4th`); `--json` carries the unrounded value. A reader
+comparing standards does not need a decimal place, and a program consuming the
+output must not be handed one that was thrown away. An open bracket renders as
+`below 3rd` / `above 97th` rather than as a number it is not.
+
+**Slice 5 includes the CLI command that calls it.** Otherwise presentation has
+no caller and the `--json` and TTY halves of the CLI contract cannot be
+asserted end to end. `exe/biometry` currently exits 2 for every subcommand.
+
 ---
 
 ## Slice 6 — HL7 ORU^R01 ingestion
