@@ -69,7 +69,7 @@ Metrics/BlockNesting:
 # this library transcribes. Spelling them out is worse, not better.
 
 Naming/MethodParameterName:
-  AllowedNames: ['n', 'to', 'at', 'id', 'io',
+  AllowedNames: ['n', 'to', 'at', 'id', 'io', 'z',
                  'ga', 'ac', 'hc', 'fl', 'bpd', 'hl', 'crl', 'efw', 'wk']
 
 Naming/BlockParameterName:

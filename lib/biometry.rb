@@ -3,7 +3,9 @@
 require 'pathname'
 
 require_relative 'biometry/errors'
+require_relative 'biometry/models/chart_weight'
 require_relative 'biometry/models/estimate'
+require_relative 'biometry/models/percentile'
 require_relative 'biometry/models/gestational_age'
 require_relative 'biometry/models/measurement'
 require_relative 'biometry/models/provenance'
@@ -14,6 +16,13 @@ require_relative 'biometry/services/weight/equation'
 require_relative 'biometry/services/weight/hadlock'
 require_relative 'biometry/services/weight/intergrowth'
 require_relative 'biometry/services/weight/all_formulas'
+require_relative 'biometry/services/growth/normal'
+require_relative 'biometry/services/growth/interpolation'
+require_relative 'biometry/services/growth/hadlock1991'
+require_relative 'biometry/services/growth/intergrowth'
+require_relative 'biometry/services/growth/nichd'
+require_relative 'biometry/services/growth/who'
+require_relative 'biometry/services/growth/who/centiles'
 
 module Biometry
   VERSION = '0.1.0'
