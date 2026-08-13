@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../lib/biometry'
+require_relative '../lib/biometry/cli/main'
+
+# The only place a Result becomes an exit code.
+#
+#   0   Success
+#   1   Failure — an expected, reportable problem
+#   2   usage error: bad flags, missing arguments, unknown subcommand
+#   70  unhandled exception (a bug)
+begin
+  exit Biometry::CLI::Main.new(stdout: $stdout, stderr: $stderr).call(ARGV)
+rescue StandardError => e
+  warn "biometry: #{e.message}"
+  exit 70
+end
