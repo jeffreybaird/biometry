@@ -107,12 +107,15 @@ about two weeks.
 
 ### Slice 2 — redating policy
 
-Reads: `data/acog_redating.yml` — **DOES NOT EXIST YET. BLOCKING.**
+Reads: `data/acog_redating.yml` — exists, `verified: true` as of 2026-08-13.
+Unblocked.
 
-Do not run this slice until you have transcribed ACOG Committee Opinion 700
-Table 1 yourself. The thresholds in PROJECT.md came from my memory, were later
-confirmed against a secondary source, and have still not been read off the
-primary document. Two details that must be captured and are easy to lose:
+The thresholds were reconstructed rather than transcribed, and the file's own
+`wholly_unverified` known_issue records that: no computation regenerates them
+and no second source in `data/` quotes them, so unlike every other constant
+here they have no independent check. `fixtures:` is still `[]`, so slice 2
+writes its own and they are the only guard there is. Two details that must be
+captured and are easy to lose:
 
 - The 22w0d–27w6d band has a discretionary zone: changes for discrepancies of
   10–14 days may be appropriate depending on how early in the range the scan
@@ -135,13 +138,21 @@ Spec-writer prompt:
 > `fixtures:` block; build specs from those fixtures first, then add
 > `:insufficient_data` cases for each formula's missing-parameter paths.
 
-Fixtures already available:
+Fixtures available:
 
-- INTERGROWTH: AC 26 cm, HC 29 cm → log 7.312292, EFW 1499 g
-- Hadlock `hc_ac_fl`: the microcephalic case (BPD 5.7, HC 21.3, AC 28.5,
-  FL 7.5) → 2415 g against actual 2250 g, a 7.3% error. The paper reports a
-  BPD+AC model missing by 46.8% on the same fetus, which is a good regression
-  test for formula selection.
+- INTERGROWTH: AC 26 cm, HC 29 cm → log 7.312292, EFW 1499 g. This is the only
+  end-to-end numeric anchor in the EFW slice.
+- Hadlock: **none.** `hadlock_1985.yml` carries `fixtures: []`. A microcephalic
+  case (BPD 5.7, HC 21.3, AC 28.5, FL 7.5 → 2415 g) was recommended here and
+  has been **withdrawn**: those inputs yield 1951.6 g under
+  `hadlock_hc_ac_fl`, and no formula in the file produces 2415 g from them. See
+  `known_issues.microcephalic_fixture_withdrawn`. Do not reinstate it without a
+  page reference, and do not write a spec asserting 2415 g — it will fail.
+
+  Consequence: the four Hadlock formulas are pinned only by the parser's
+  grammar specs and by the property that the adapter evaluates the manifest
+  string over centimetres and exponentiates base 10. A mis-transcribed
+  coefficient would pass the whole suite.
 
 Watch for: INTERGROWTH requires AC and HC and has no FL term. A scan with
 BPD, AC and FL but no HC cannot produce an INTERGROWTH EFW. That is a real
@@ -280,8 +291,16 @@ EFW tables were never reissued.
 
 ## 6. Blocking gaps
 
-1. **`data/acog_redating.yml` does not exist.** Slice 2 cannot start. Requires
-   reading ACOG Committee Opinion 700 Table 1 directly.
+1. **No Hadlock EFW fixture exists.** `hadlock_1985.yml` carries
+   `fixtures: []` after the microcephalic case was withdrawn as untraceable to
+   the paper. The four Hadlock formulas therefore have no end-to-end numeric
+   anchor, and slice 4's Hadlock 1991 chart depends on one of them. Transcribe
+   a worked example per formula from the 1985 paper. This is the largest open
+   risk in the repository.
+
+   ~~`data/acog_redating.yml` does not exist.~~ Resolved: the file exists and
+   carries `verified: true` as of 2026-08-13. Its thresholds remain
+   reconstructed rather than transcribed — see the slice 2 section.
 2. **NICHD paired formula is stated but the reference number was not resolved.**
    The Methods say HC, AC and FL via "a Hadlock formula" citing ref 20. The
    parameter set identifies it as `hc_ac_fl`, but confirm ref 20 is Hadlock
