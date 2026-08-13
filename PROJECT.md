@@ -11,9 +11,10 @@ disagreement between standards is this tool's output, not a caveat on it.
 
 ## Where the repo stands
 
-**Slice 0 is built except for `spec/`.** The library loads, the CLI runs and
-returns the documented exit codes, `rubocop` is clean across 17 files, and the
-fixture harness is green.
+**Slice 0 is done.** The library loads, the CLI runs and returns the documented
+exit codes, `rake verify` is green — 93 examples, 0 failures, 100% line and
+branch coverage, `rubocop` clean across 27 files, no CVEs — and the fixture
+harness passes.
 
 ```
 CLAUDE.md                  house rules, loaded every turn
@@ -25,7 +26,7 @@ Gemfile, Gemfile.lock      dependencies resolved
 .rspec                     --require spec_helper
 Rakefile                   rake verify
 .claude/agents/            spec-writer, reviewer, test-runner, Explore, implementer
-.claude/settings.json      hooks, agent-teams flag
+.claude/settings.json      hook registration
 scripts/protect-tests.sh   PreToolUse hook — specs are spec-writer's
 scripts/gate.sh            TaskCompleted hook — no completion on a red suite
 scripts/fixtures.rb        fixture harness (0e), plus scripts/fixtures/
@@ -34,7 +35,7 @@ lib/biometry/              models, cli, reference_data
 data/                      reference constants (see below)
 ```
 
-Still absent: `spec/`. See "Slice 0" below — one hook stands in the way.
+`spec/` is written and owned by spec-writer. See 0f for how it gets written.
 
 ### Reference data, as committed
 
@@ -177,9 +178,9 @@ input, never a default.
 not a spec-writer task: there is nothing to decompose, and the value objects
 are decisions rather than derivations.
 
-**Status: done except 0f.** `.ruby-version`, `.rspec`, `.gitignore`,
-`exe/biometry`, `lib/biometry/`, and `scripts/fixtures*` are in place;
-`rubocop` passes; the repo is now a git repository on `main`.
+**Status: done and committed.** `.ruby-version`, `.rspec`, `.gitignore`,
+`exe/biometry`, `lib/biometry/`, `spec/` and `scripts/fixtures*` are in place;
+`rake verify` passes; the repo is a git repository on `main`.
 
 ### 0a. Infrastructure
 
@@ -361,28 +362,41 @@ land on the same integer. All three ties are inside weeks 10–14, which slice 4
 rejects anyway. The harness therefore asserts the stronger pair: non-decreasing
 across the whole table, strictly increasing within the fitted range 15–40.
 
-### 0f. Not done — `spec/`
+### 0f. `spec/` — spec-writer's, and only reachable that way
 
-`spec/spec_helper.rb` and the slice 0 specs do not exist.
-`scripts/protect-tests.sh` blocks every non-spec-writer agent from writing anything matching
-`(^|/)(spec|tests?)/`, and this section assigns slice 0 to the main agent
-working serially. The two rules contradict each other and the hook wins.
+10 files, 93 examples, 100% line and branch coverage. Written by spec-writer,
+which is the only agent that can write them.
 
-`rake verify` cannot pass until this is resolved: `rspec` has nothing to run,
-and `COVERAGE_ENFORCE` would fail the coverage floor on an empty suite.
+`scripts/protect-tests.sh` blocks writes to anything matching
+`(^|/)(spec|tests?)/|_spec\.rb|_test\.rb` unless the PreToolUse payload carries
+`agent_type == "spec-writer"`, or `ALLOW_TEST_EDITS` is set in the hook
+process's environment. **This works for a Task-spawned subagent and does not
+work for a named teammate**, which is worth knowing before you reach for one:
 
-Pick one:
+| caller | `agent_type` in payload | write to `spec/` |
+|---|---|---|
+| main agent | absent, defaults to `main` | blocked |
+| subagent, `subagent_type: spec-writer` | `spec-writer` | allowed |
+| subagent, any other type | that type | blocked |
+| named teammate | absent | blocked, whatever its role |
 
-1. Run the slice 0 spec work with `ALLOW_TEST_EDITS=1`, which the hook honours.
-2. Narrow the hook so `spec/spec_helper.rb` and other harness files are not
-   spec-writer's, only `*_spec.rb` is.
-3. Hand slice 0's specs to spec-writer after all, accepting that it writes
-   specs for value objects it did not design.
+Verified by probe, both arms, with the env clean. The named-teammate row is why
+`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is no longer set in
+`.claude/settings.json`: with agent teams on, delegating to spec-writer as a
+teammate produces a spec-writer that cannot write specs.
 
-Then write: `spec/spec_helper.rb` per 0a, plus
-specs for `GestationalAge` boundary arithmetic (13w6d + 1 day, the three GA
-conventions), `ReferenceData` (the `Date` case, the `verified: false` raise,
-blank CSV cells), and `exe/biometry` exit codes 0 and 2.
+Two traps if you ever do need `ALLOW_TEST_EDITS`:
+
+- Adding it to `settings.json` takes effect mid-session; **removing it does
+  not**. The variable stays live in the running process until restart, so the
+  guard reads as restored while it is still off. Check with
+  `printenv ALLOW_TEST_EDITS` rather than reading the file.
+- While it is set, every agent is exempt, including subagents that inherit the
+  session environment. It is not a spec-writer override, it is an off switch.
+
+Do not narrow the `SPEC` pattern to `_spec\.rb` alone as a workaround. The block
+is keyed on caller identity, not on which part of the pattern matched, so that
+would open `spec_helper.rb` and still refuse every `*_spec.rb`.
 
 ---
 
@@ -591,7 +605,7 @@ scrape numbers out of prose.
 ## Sequence
 
 ```
-0. scaffolding + shared types + loader     built except spec/ — see 0f
+0. scaffolding + shared types + loader     done, committed
 1. gestational age                         ready
 2. redating                                ready; acog_redating.yml verified 2026-08-13
 3. EFW                                     ready; independent of 1 and 2
@@ -600,10 +614,9 @@ scrape numbers out of prose.
 6. HL7                                     independent; do last
 ```
 
-Finish 0f and commit before any agent runs, then start with 3. It is
-unblocked, it exercises the `data/` loading path everything downstream depends
-on, and its fixtures are already written — it is also what turns the 8 pending
-entries in the harness green.
+Start with 3. It is unblocked, it exercises the `data/` loading path everything
+downstream depends on, and its fixtures are already written — it is also what
+turns four of the 8 pending entries in the harness green.
 
 Two decisions to make before slice 4 forks, both recorded above rather than
 left to four adapters: where INTERGROWTH's paired formula comes from, given

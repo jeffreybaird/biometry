@@ -30,7 +30,7 @@ Both were written for a generic Ruby CLI. Two edits needed before use:
 | `.claude/agents/reviewer.md` | opus | reads merged diff, read-only |
 | `.claude/agents/test-runner.md` | haiku | runs a command, reports failures verbatim |
 | `.claude/agents/Explore.md` | haiku | overrides built-in Explore to keep it cheap |
-| `.claude/settings.json` | — | session-wide `PreToolUse` hook + agent-teams flag |
+| `.claude/settings.json` | — | `PreToolUse` + `TaskCompleted` hook registration |
 | `scripts/protect-tests.sh` | — | blocks spec edits by anyone but spec-writer |
 | `Rakefile`, `Gemfile` | — | `rake verify` gate |
 
