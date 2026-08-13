@@ -5,17 +5,20 @@
 # not produce one. Choosing between them is the caller's job, so nothing here
 # ranks, filters or labels.
 #
-# On offer means verified: data/hadlock.yml marks three of its four Table II
-# rows unverified, and an unverified formula is not offered at all.
+# The loader prunes unverified rows, so everything present in the manifests
+# handed over here is confirmed by construction: the set on offer is simply
+# what those manifests carry.
 RSpec.describe Biometry::Services::Weight::AllFormulas do
   subject(:results) { service.call(scan).value! }
 
-  let(:hadlock) { Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml') }
+  let(:hadlock) do
+    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml').first
+  end
   let(:intergrowth) do
-    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml')
+    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml').first
   end
   let(:service) { described_class.new(hadlock: hadlock, intergrowth: intergrowth) }
-  let(:offered) { hadlock[:efw_formulas].select { |_, row| row[:verified] }.keys + [:intergrowth] }
+  let(:offered) { hadlock[:efw_formulas].keys + [:intergrowth] }
   let(:scan) { scan_of(bpd: 85, hc: 290, ac: 260, fl: 55) }
 
   def scan_of(**millimetres)
@@ -32,8 +35,8 @@ RSpec.describe Biometry::Services::Weight::AllFormulas do
       expect(results.keys).to match_array(%i[hc_ac_fl intergrowth])
     end
 
-    it 'omits the Hadlock rows that rest on a single unchecked transcription' do
-      expect(results.keys).not_to include(:ac_fl, :bpd_ac_fl, :bpd_hc_ac_fl)
+    it 'omits the Hadlock row the loader pruned as unverified' do
+      expect(results.keys).not_to include(:bpd_hc_ac_fl)
     end
 
     it 'produces an estimate from every formula it offers' do
@@ -41,7 +44,7 @@ RSpec.describe Biometry::Services::Weight::AllFormulas do
     end
 
     it 'has each estimate name the formula that produced it' do
-      expect(results.to_h { |id, result| [id, result.value!.method] })
+      expect(results.to_h { |id, result| [id, result.value!.formula] })
         .to eq(offered.to_h { |id| [id, id] })
     end
 

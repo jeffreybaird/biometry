@@ -8,18 +8,14 @@ module Biometry
       # Estimated fetal weight by one of the Hadlock 1985 Table II regressions.
       #
       # The coefficients come from the manifest's `equation:` string by way of
-      # Equation; all four models are log base 10, so the inverse applied here
-      # is 10**, matching the `log10(W) =` each string declares.
+      # Equation; every Table II model is log base 10, so the inverse applied
+      # here is 10**, matching the `log10(W) =` each string declares.
       #
-      # This is also where data/hadlock.yml's per-row `verified` flags are
-      # enforced. ReferenceData refuses a file whose top-level `verified` is
-      # false, but reads no deeper, so a row resting on a single unchecked
-      # transcription would otherwise be offered as freely as a confirmed one.
-      # Only hc_ac_fl currently has confirmation outside this project.
-      #
-      # An unverified row is reported as unavailable rather than raised on: the
-      # file is sound and one row within it is withheld, which is a condition a
-      # caller can reasonably act on.
+      # There is no verified check here. ReferenceData prunes unverified
+      # entries before a manifest reaches a service, so an unverified formula
+      # is simply not in `efw_formulas` and takes the same path as a formula
+      # id that never existed. That is deliberate: a guard here would be an
+      # obligation every future adapter has to remember.
       class Hadlock
         include Dry::Monads[:result]
 
@@ -32,7 +28,7 @@ module Biometry
 
         def call(scan)
           row = formulas[formula]
-          return unsupported unless row && row[:verified]
+          return unsupported unless row
 
           required = row[:requires].map(&:to_sym)
           return insufficient(scan, required) unless scan.supports?(required)
@@ -44,7 +40,7 @@ module Biometry
 
         attr_reader :formulas, :formula
 
-        def available = formulas.select { |_, row| row[:verified] }.keys
+        def available = formulas.keys
 
         def unsupported
           Failure([:unsupported_standard, { requested: formula, available: available }])
@@ -55,7 +51,7 @@ module Biometry
         end
 
         def estimate(scan, row, required)
-          Estimate.new(value: grams(scan, row, required), unit: 'g', method: formula,
+          Estimate.new(value: grams(scan, row, required), unit: 'g', formula: formula,
                        inputs: required, source: provenance)
         end
 

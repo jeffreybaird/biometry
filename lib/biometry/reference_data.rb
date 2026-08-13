@@ -23,15 +23,27 @@ module Biometry
 
     module_function
 
-    # Reads a YAML manifest. Raises rather than returning a Failure: an
-    # unverified or unreadable constant file is a developer error, not a
-    # runtime condition, and no caller should branch on it.
+    # Reads a YAML manifest, returning [data, dropped].
+    #
+    # A file whose top-level `verified` is false raises: that is a developer
+    # error, not a runtime condition, and no caller should branch on it.
+    #
+    # An entry *within* a file that is marked unverified is pruned instead, so
+    # it never reaches a service at all. That collapses "unverified" into
+    # "absent", which every adapter already handles — the alternative, a guard
+    # each adapter is obliged to remember, is the seam defect that a
+    # four-adapter slice exists to produce.
+    #
+    # `dropped` lists the key paths removed, e.g.
+    # [[:efw_formulas, :bpd_hc_ac_fl]]. Pruning silently would be worse than
+    # the guard: a caller has to be able to say what is unavailable and why.
     def load_manifest(path)
       data = parse_yaml(path)
       raise MalformedReferenceData, "#{path} did not parse to a mapping." unless data.is_a?(Hash)
 
       refuse_unverified(path, data)
-      deep_freeze(data)
+      pruned, dropped = prune_unverified(data)
+      [deep_freeze(pruned), dropped.freeze]
     end
 
     # Reads a percentile table. Blank cells stay nil — WHO's sex-specific
@@ -54,6 +66,48 @@ module Biometry
       raise UnverifiedReferenceData,
             "#{path} is marked unverified. Check every value against the source, " \
             'set verified: true, then re-run.'
+    end
+
+    # An entry is unverified only when it says so itself. A missing `verified`
+    # key means the surrounding file vouched for it, which is how the four
+    # manifests that carry no per-entry flags keep working.
+    def unverified?(value) = value.is_a?(Hash) && value[:verified] == false
+
+    def prune_unverified(node, path = [])
+      return prune_hash(node, path) if node.is_a?(Hash)
+      return prune_array(node, path) if node.is_a?(Array)
+
+      [node, []]
+    end
+
+    def prune_hash(hash, path)
+      dropped = []
+      kept = {}
+      hash.each do |key, value|
+        child_path = path + [key]
+        next dropped << child_path if unverified?(value)
+
+        kept[key], child_dropped = prune_unverified(value, child_path)
+        dropped.concat(child_dropped)
+      end
+      [kept, dropped]
+    end
+
+    # Arrays are walked too: ACOG's redating bands are a list, and one
+    # unverified band must not reach the service any more than one unverified
+    # formula must.
+    def prune_array(array, path)
+      dropped = []
+      kept = []
+      array.each_with_index do |value, index|
+        child_path = path + [index]
+        next dropped << child_path if unverified?(value)
+
+        child, child_dropped = prune_unverified(value, child_path)
+        kept << child
+        dropped.concat(child_dropped)
+      end
+      [kept, dropped]
     end
 
     def coerce_row(row)

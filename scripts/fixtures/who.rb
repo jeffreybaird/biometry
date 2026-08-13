@@ -13,7 +13,7 @@ module Fixtures
 
     def call(report)
       report.section('WHO (table-backed — checkable now)')
-      manifest = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'who.yml')
+      manifest, = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'who.yml')
       rows = Biometry::ReferenceData.load_table(Biometry::DATA_ROOT / 'percentiles/who.csv')
 
       manifest[:fixtures].each { |fixture| run(report, fixture, rows) }

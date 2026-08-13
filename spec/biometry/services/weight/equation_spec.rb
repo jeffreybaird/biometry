@@ -6,15 +6,25 @@
 # Ruby is to parse them. The grammar is closed: a sum of signed terms, each a
 # numeric coefficient optionally multiplied by named variables.
 RSpec.describe Biometry::Services::Weight::Equation do
-  let(:manifest) { Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml') }
-  let(:formulas) { manifest[:efw_formulas] }
+  let(:formulas) do
+    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml').first[:efw_formulas]
+  end
+
+  # bpd_hc_ac_fl is unverified, so load_manifest prunes it and no service will
+  # ever see it. Its equation is still the only two-line one in the repo, and
+  # it is the row slice 4 is blocked on, so the parser has to keep handling
+  # that shape. Read past the loader deliberately, and only for the string's
+  # shape — no value transcribed from this row is asserted anywhere.
+  let(:unpruned) do
+    YAML.safe_load_file(Biometry::DATA_ROOT / 'hadlock.yml', symbolize_names: true)
+  end
 
   describe '.parse' do
     context 'when the equation is written on one line' do
-      subject(:equation) { described_class.parse(formulas[:ac_fl][:equation]) }
+      subject(:equation) { described_class.parse(formulas[:hc_ac_fl][:equation]) }
 
       it 'names the variables the equation reads, lowercased' do
-        expect(equation.variables).to contain_exactly(:ac, :fl)
+        expect(equation.variables).to contain_exactly(:hc, :ac, :fl)
       end
 
       it 'ignores the left-hand side rather than treating log10 as a variable' do
@@ -26,7 +36,9 @@ RSpec.describe Biometry::Services::Weight::Equation do
     # line: the continuation is more-indented, so YAML keeps the newline. The
     # string arrives with an embedded "\n", run-on spaces and a trailing "\n".
     context 'when the equation spans two lines' do
-      subject(:equation) { described_class.parse(formulas[:bpd_hc_ac_fl][:equation]) }
+      subject(:equation) do
+        described_class.parse(unpruned[:efw_formulas][:bpd_hc_ac_fl][:equation])
+      end
 
       it 'reads the terms on both sides of the line break' do
         expect(equation.variables).to contain_exactly(:bpd, :hc, :ac, :fl)
@@ -42,7 +54,7 @@ RSpec.describe Biometry::Services::Weight::Equation do
       # deliberately not parsed: its coefficients are published as a
       # `coefficients:` block and its functional form belongs in code.
       let(:intergrowth) do
-        Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml')
+        Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml').first
       end
 
       it 'refuses the INTERGROWTH equation rather than parsing part of it' do

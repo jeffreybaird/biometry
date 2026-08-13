@@ -11,7 +11,7 @@ module Fixtures
 
     def call(report)
       report.section('INTERGROWTH EFW (slice 3 — checkable now)')
-      manifest = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml')
+      manifest, = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml')
       fixture = manifest[:fixtures].find { |f| f[:name] == FIXTURE }
 
       run(report, manifest, fixture)

@@ -8,7 +8,7 @@ RSpec.describe Biometry::Services::Weight::Intergrowth do
   subject(:result) { service.call(scan) }
 
   let(:manifest) do
-    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml')
+    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml').first
   end
   let(:service) { described_class.new(manifest: manifest) }
   let(:estimate) { result.value! }
@@ -38,7 +38,7 @@ RSpec.describe Biometry::Services::Weight::Intergrowth do
     end
 
     it 'names the formula that produced the value' do
-      expect(estimate.method).to eq(:intergrowth)
+      expect(estimate.formula).to eq(:intergrowth)
     end
 
     it 'lists the measurements used, with no femur term' do

@@ -27,14 +27,17 @@ module Fixtures
     end
 
     def check_file(report, name)
-      data = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / "#{name}.yml")
+      data, dropped = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / "#{name}.yml")
       report.pass("#{name}.yml loads (verified: #{data.fetch(:verified, 'n/a')})")
-      return if name == 'acog_redating'
-
-      report.check("#{name}.yml valid_ga_weeks", range(data), RANGES.fetch(name))
-      report.check("#{name}.yml paired_formula", pairing(data), PAIRINGS.fetch(name))
+      dropped.each { |path| report.pending(path.join('.'), 'pruned, marked unverified') }
+      check_fields(report, name, data) unless name == 'acog_redating'
     rescue Biometry::Error => e
       report.fail_with("#{name}.yml loads", e.message)
+    end
+
+    def check_fields(report, name, data)
+      report.check("#{name}.yml valid_ga_weeks", range(data), RANGES.fetch(name))
+      report.check("#{name}.yml paired_formula", pairing(data), PAIRINGS.fetch(name))
     end
 
     def range(data) = data[:valid_ga_weeks] || data.dig(:hadlock_1991, :valid_ga_weeks)

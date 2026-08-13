@@ -16,14 +16,13 @@ module Biometry
       # formula, because there is no single `required:` that means anything
       # across requirement sets that differ per formula.
       #
-      # On offer means verified. data/hadlock.yml marks three of its four
-      # Table II rows unverified, and Hadlock withholds those.
+      # Everything in the manifest is on offer. ReferenceData prunes unverified
+      # entries on the way in, so there is nothing to filter here.
       class AllFormulas
         include Dry::Monads[:result]
 
         def initialize(hadlock:, intergrowth:)
           @services = hadlock[:efw_formulas]
-                      .select { |_, row| row[:verified] }
                       .keys
                       .to_h { |id| [id, Hadlock.new(manifest: hadlock, formula: id)] }
                       .merge(Intergrowth::FORMULA => Intergrowth.new(manifest: intergrowth))

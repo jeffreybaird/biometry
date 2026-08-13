@@ -5,16 +5,17 @@
 # constructed with parsed manifest contents, never a path — nothing under
 # services/ may touch the filesystem.
 #
-# data/hadlock.yml marks each row of Table II verified or not, and the loader
-# does not enforce those nested flags: refuse_unverified reads the top-level
-# key only. This service is the enforcement point.
+# Verification is the loader's job, not this service's: load_manifest prunes
+# any row marked unverified, so an unconfirmed formula is simply absent from
+# the manifest handed over here and takes the unknown-formula path.
 RSpec.describe Biometry::Services::Weight::Hadlock do
   subject(:result) { service.call(scan) }
 
-  let(:manifest) { Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml') }
+  let(:manifest) do
+    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml').first
+  end
   let(:service) { described_class.new(manifest: manifest, formula: :hc_ac_fl) }
   let(:estimate) { result.value! }
-  let(:verified) { manifest[:efw_formulas].select { |_, row| row[:verified] }.keys }
 
   # Millimetres, because that is what HL7 OBX-5 carries.
   let(:scan) do
@@ -38,7 +39,7 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
     end
 
     it 'names the formula that produced the value' do
-      expect(estimate.method).to eq(:hc_ac_fl)
+      expect(estimate.formula).to eq(:hc_ac_fl)
     end
 
     it 'lists only the measurements the formula actually used' do
@@ -73,37 +74,19 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
     end
   end
 
-  # Partitioned from the manifest, not from a list written here: the split
-  # moves the moment a row is confirmed against its source.
+  # Every formula the manifest still carries, whatever that set becomes as
+  # rows are confirmed or withdrawn.
   describe 'the formulas it offers' do
     let(:service) { described_class.new(manifest: manifest, formula: formula) }
 
-    rows = Biometry::ReferenceData
-           .load_manifest(Biometry::DATA_ROOT / 'hadlock.yml')[:efw_formulas]
-    confirmed, unconfirmed = rows.partition { |_, row| row[:verified] }.map { |g| g.map(&:first) }
+    rows, = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml')
 
-    confirmed.each do |id|
-      context "when the requested formula is #{id}, which the manifest marks verified" do
+    rows[:efw_formulas].each_key do |id|
+      context "when the requested formula is #{id}" do
         let(:formula) { id }
 
         it 'produces an estimate naming itself' do
-          expect(estimate.method).to eq(id)
-        end
-      end
-    end
-
-    unconfirmed.each do |id|
-      context "when the requested formula is #{id}, which the manifest marks unverified" do
-        let(:formula) { id }
-
-        it 'fails rather than offering a row that rests on one transcription' do
-          expect(result).to be_failure
-        end
-
-        it 'lists only the verified formulas as available' do
-          expect(result.failure).to eq(
-            [:unsupported_standard, { requested: id, available: verified }]
-          )
+          expect(estimate.formula).to eq(id)
         end
       end
     end
@@ -127,12 +110,19 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
     end
   end
 
-  context 'when the requested formula is not one the manifest publishes' do
-    let(:service) { described_class.new(manifest: manifest, formula: :ac_hc) }
+  # An unverified formula was pruned by the loader, so it reaches this service
+  # as an absence and is indistinguishable from a formula that never existed.
+  context 'when the requested formula is not in the manifest it was handed' do
+    let(:service) { described_class.new(manifest: manifest, formula: :bpd_hc_ac_fl) }
+
+    it 'fails rather than reaching for a formula it does not have' do
+      expect(result).to be_failure
+    end
 
     it 'names what was requested and what is available' do
       expect(result.failure).to eq(
-        [:unsupported_standard, { requested: :ac_hc, available: verified }]
+        [:unsupported_standard,
+         { requested: :bpd_hc_ac_fl, available: manifest[:efw_formulas].keys }]
       )
     end
   end

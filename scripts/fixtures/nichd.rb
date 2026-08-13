@@ -13,7 +13,7 @@ module Fixtures
 
     def call(report)
       report.section('NICHD (table-backed — checkable now)')
-      manifest = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'nichd.yml')
+      manifest, = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'nichd.yml')
       rows = Biometry::ReferenceData.load_table(Biometry::DATA_ROOT / 'percentiles/nichd.csv')
 
       manifest[:fixtures].each { |fixture| run(report, fixture, rows) }

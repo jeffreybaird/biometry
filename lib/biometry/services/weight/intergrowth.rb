@@ -43,7 +43,7 @@ module Biometry
         end
 
         def estimate(scan)
-          Estimate.new(value: grams(scan), unit: 'g', method: FORMULA,
+          Estimate.new(value: grams(scan), unit: 'g', formula: FORMULA,
                        inputs: required, source: provenance)
         end
 

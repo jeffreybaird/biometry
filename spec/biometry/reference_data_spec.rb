@@ -16,7 +16,11 @@ RSpec.describe Biometry::ReferenceData do
     Dir.mktmpdir { |dir| yield File.join(dir, name) }
   end
 
-  def manifest(name) = described_class.load_manifest(Biometry::DATA_ROOT / "#{name}.yml")
+  # load_manifest returns [data, dropped]. Most examples care only about the
+  # data half; the pruning contract has its own section below.
+  def manifest(name)
+    described_class.load_manifest(Biometry::DATA_ROOT / "#{name}.yml").first
+  end
 
   describe '.load_manifest' do
     it 'loads every manifest committed under data/' do
@@ -59,10 +63,10 @@ RSpec.describe Biometry::ReferenceData do
     end
 
     context 'when the file is marked verified' do
-      it 'returns the parsed mapping' do
+      it 'returns the parsed mapping alongside the entries it dropped' do
         with_file('ok.yml', "verified: true\nvalid_ga_weeks: [14, 40]\n") do |path|
           expect(described_class.load_manifest(path))
-            .to eq(verified: true, valid_ga_weeks: [14, 40])
+            .to eq([{ verified: true, valid_ga_weeks: [14, 40] }, []])
         end
       end
     end
@@ -70,7 +74,133 @@ RSpec.describe Biometry::ReferenceData do
     context 'when the file carries no verified flag at all' do
       it 'loads it, because only an explicit false is a refusal' do
         with_file('bare.yml', "valid_ga_weeks: [14, 40]\n") do |path|
-          expect(described_class.load_manifest(path)).to eq(valid_ga_weeks: [14, 40])
+          expect(described_class.load_manifest(path).first).to eq(valid_ga_weeks: [14, 40])
+        end
+      end
+    end
+
+    # Pruning rather than guarding: an unverified entry never reaches a
+    # service, so "unverified" collapses into "absent" and each adapter's
+    # existing missing-entry path handles it, with no obligation for a future
+    # adapter to remember. Pruning silently would be worse than the guard was,
+    # so the paths removed come back alongside the data.
+    describe 'the entries it prunes' do
+      let(:nested) do
+        <<~YAML
+          efw_formulas:
+            hc_ac_fl:
+              equation: "log10(W) = 1 + 2*AC"
+              verified: true
+            bpd_hc_ac_fl:
+              equation: "log10(W) = 1 + 2*BPD"
+              verified: false
+        YAML
+      end
+
+      context 'when a nested entry is marked unverified' do
+        it 'removes it, so no service can be handed an unconfirmed constant' do
+          with_file('n.yml', nested) do |path|
+            data, = described_class.load_manifest(path)
+            expect(data[:efw_formulas].keys).to eq(%i[hc_ac_fl])
+          end
+        end
+
+        it 'names the path it removed' do
+          with_file('n.yml', nested) do |path|
+            expect(described_class.load_manifest(path).last)
+              .to eq([%i[efw_formulas bpd_hc_ac_fl]])
+          end
+        end
+
+        it 'leaves its verified siblings intact' do
+          with_file('n.yml', nested) do |path|
+            data, = described_class.load_manifest(path)
+            expect(data.dig(:efw_formulas, :hc_ac_fl, :equation)).to eq('log10(W) = 1 + 2*AC')
+          end
+        end
+      end
+
+      # ACOG's redating thresholds are a list of bands, so an unverified
+      # element of an array has to go the same way an unverified formula does.
+      context 'when an entry inside a list is marked unverified' do
+        let(:bands) do
+          <<~YAML
+            bands:
+              - ga_upper_days: 97
+                verified: true
+              - ga_upper_days: 153
+                verified: false
+              - ga_upper_days: 195
+                verified: true
+                discretionary:
+                  threshold_days: 14
+                  verified: false
+          YAML
+        end
+
+        it 'removes it, keeping the verified bands in their published order' do
+          with_file('b.yml', bands) do |path|
+            data, = described_class.load_manifest(path)
+            expect(data[:bands].map { |band| band[:ga_upper_days] }).to eq([97, 195])
+          end
+        end
+
+        it 'names it by its index in the list as published' do
+          with_file('b.yml', bands) do |path|
+            expect(described_class.load_manifest(path).last).to include([:bands, 1])
+          end
+        end
+
+        it 'walks the bands it keeps, pruning an unverified entry inside one' do
+          with_file('b.yml', bands) do |path|
+            data, = described_class.load_manifest(path)
+            expect(data[:bands].last).not_to have_key(:discretionary)
+          end
+        end
+
+        it 'names a nested removal by the path through the list' do
+          with_file('b.yml', bands) do |path|
+            expect(described_class.load_manifest(path).last)
+              .to include([:bands, 2, :discretionary])
+          end
+        end
+      end
+
+      context 'when a top-level section is marked unverified' do
+        it 'removes the section and names it by its one-element path' do
+          yaml = "hadlock_1991:\n  verified: false\nvalid_ga_weeks: [10, 40]\n"
+          with_file('t.yml', yaml) do |path|
+            expect(described_class.load_manifest(path))
+              .to eq([{ valid_ga_weeks: [10, 40] }, [[:hadlock_1991]]])
+          end
+        end
+      end
+
+      context 'when every entry is verified' do
+        it 'drops nothing' do
+          with_file('all.yml', "median:\n  verified: true\n") do |path|
+            expect(described_class.load_manifest(path).last).to be_empty
+          end
+        end
+      end
+
+      context "when an entry's verified key holds prose rather than a flag" do
+        it 'keeps it, because only an explicit false is a refusal' do
+          with_file('p.yml', "median:\n  verified: >\n    Reproduces Table 1.\n") do |path|
+            expect(described_class.load_manifest(path).last).to be_empty
+          end
+        end
+      end
+
+      context 'when the manifest is data/hadlock.yml as committed' do
+        subject(:loaded) { described_class.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml') }
+
+        it 'hands a service only the formula row that is confirmed' do
+          expect(loaded.first[:efw_formulas].keys).to eq(%i[hc_ac_fl])
+        end
+
+        it 'reports the one unverified row in the repo' do
+          expect(loaded.last).to eq([%i[efw_formulas bpd_hc_ac_fl]])
         end
       end
     end

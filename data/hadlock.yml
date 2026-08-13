@@ -15,28 +15,6 @@
 # ================================================================ FORMULAS ===
 # All measurements in CENTIMETRES. Weight in grams. log10 is base-10.
 efw_formulas:
-  ac_fl:
-    requires: [ac, fl]
-    equation: "log10(W) = 1.304 + 0.05281*AC + 0.1938*FL - 0.004*AC*FL"
-    sd_pct: 8.0
-    r2_pct: 97.3
-    verified: false
-    verified_note: >
-      Single hand transcription of Table II with no independent check, and no
-      chart in this project pairs with it. See known_issues
-      unconfirmed_table_ii_rows.
-
-  bpd_ac_fl:
-    requires: [bpd, ac, fl]
-    equation: "log10(W) = 1.335 - 0.0034*AC*FL + 0.0316*BPD + 0.0457*AC + 0.1623*FL"
-    sd_pct: 7.5
-    r2_pct: 97.6
-    verified: false
-    verified_note: >
-      Single hand transcription of Table II with no independent check, and no
-      chart in this project pairs with it. See known_issues
-      unconfirmed_table_ii_rows.
-
   hc_ac_fl:
     requires: [hc, ac, fl]
     equation: "log10(W) = 1.326 - 0.00326*AC*FL + 0.0107*HC + 0.0438*AC + 0.158*FL"
@@ -121,17 +99,21 @@ known_issues:
     detail: >
       Only hc_ac_fl has confirmation outside this project's own transcription:
       LOINC 11746-5 and INTERGROWTH's 2021 paper both publish its
-      coefficients. ac_fl, bpd_ac_fl and bpd_hc_ac_fl rest on a single hand
-      transcription of Table II with nothing checking it, and the withdrawal
-      of the microcephalic fixture leaves them with no worked example either.
-      All three carry verified: false.
+      coefficients. The other Table II rows rest on a single hand
+      transcription with nothing checking it, and the withdrawal of the
+      microcephalic fixture leaves them with no worked example either.
 
-      bpd_hc_ac_fl is the urgent one: the hadlock_1991 growth chart pairs with
-      it, so slice 4's Hadlock adapter is blocked until Table II's fourth row
-      is re-read from the 1985 PDF and the flag set true.
+      bpd_hc_ac_fl carries verified: false and is the one that matters: the
+      hadlock_1991 growth chart pairs with it, so slice 4's Hadlock adapter is
+      blocked until Table II's fourth row is re-read from the 1985 PDF and the
+      flag set true.
 
-      ac_fl and bpd_ac_fl are unused — no chart in this project pairs with
-      either — and are candidates for removal rather than verification.
+      ac_fl and bpd_ac_fl were removed from this file on 2026-08-13 rather
+      than left unverified. No chart in this project pairs with either, both
+      rested on the same unchecked transcription, and their presence invited
+      use of a constant nothing could confirm. Recover them from git history
+      if a chart ever needs them, and verify against Table II before
+      reinstating.
 
   - id: abstract_sd_contradicts_table
     severity: high
