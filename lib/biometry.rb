@@ -9,6 +9,10 @@ require_relative 'biometry/models/measurement'
 require_relative 'biometry/models/provenance'
 require_relative 'biometry/models/scan'
 require_relative 'biometry/reference_data'
+require_relative 'biometry/services/weight/equation'
+require_relative 'biometry/services/weight/hadlock'
+require_relative 'biometry/services/weight/intergrowth'
+require_relative 'biometry/services/weight/all_formulas'
 
 module Biometry
   VERSION = '0.1.0'
