@@ -4,17 +4,11 @@ module Fixtures
   # Collects results and prints them. Diagnostics go to the stream it is
   # given; the process exit status is the machine-readable part.
   class Report
+    # Everything else is now driven through a real adapter. This one asserts
+    # intermediate LMS parameters, which no public interface exposes — and
+    # should not, since they are a step in a calculation rather than a result.
     EQUATION_FIXTURES = {
-      'hadlock_1991.yml' => [
-        'median equation at selected weeks',
-        'centiles at 32 weeks',
-        'centiles at 40 weeks'
-      ],
-      'intergrowth21.yml' => [
-        'worked example, LMS parameters at 30+0',
-        '3rd centile at 30+0',
-        'Table S1 centiles at 33+0'
-      ]
+      'intergrowth21.yml' => ['worked example, LMS parameters at 30+0']
     }.freeze
 
     def initialize(io)
@@ -54,7 +48,7 @@ module Fixtures
     end
 
     def pending_equation_fixtures
-      section('Equation-backed fixtures (slices 3 and 4)')
+      section('Fixtures with no public interface to check them against')
       EQUATION_FIXTURES.each { |file, names| pend_all(file, names) }
     end
 
@@ -67,7 +61,7 @@ module Fixtures
     private
 
     def pend_all(file, names)
-      names.each { |name| pending("#{file}: #{name}", 'needs the formula code from slice 3/4') }
+      names.each { |name| pending("#{file}: #{name}", 'asserts an intermediate value') }
     end
   end
 end
