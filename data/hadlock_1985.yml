@@ -11,10 +11,10 @@ source:
   kind: formulas
   table: "Table II (Model 2, n=276)"
 
-units:
-  measurements: cm
-  weight: g
-  log: base10
+# All measurements in CENTIMETRES, weight in grams, log base 10. Stated here
+# as prose rather than as machine-readable keys: nothing reads them, the
+# adapter hardcodes all three, and a key documenting what the code already
+# hardcodes is a second source of truth waiting to drift out of step.
 
 # Formula ids are global. `paired_formula` in a chart manifest resolves here.
 efw_formulas:
