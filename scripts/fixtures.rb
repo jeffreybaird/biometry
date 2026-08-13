@@ -19,12 +19,14 @@ require_relative 'fixtures/report'
 require_relative 'fixtures/manifests'
 require_relative 'fixtures/nichd'
 require_relative 'fixtures/who'
+require_relative 'fixtures/intergrowth'
 
 report = Fixtures::Report.new($stdout)
 
 Fixtures::Manifests.call(report)
 Fixtures::Nichd.call(report)
 Fixtures::Who.call(report)
+Fixtures::Intergrowth.call(report)
 
 report.pending_equation_fixtures
 exit report.summary

@@ -11,7 +11,6 @@ module Fixtures
         '1991 centiles at 40 weeks'
       ],
       'intergrowth21.yml' => [
-        'worked example, EFW',
         'worked example, LMS parameters at 30+0',
         '3rd centile at 30+0',
         'Table S1 centiles at 33+0'
