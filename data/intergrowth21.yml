@@ -69,13 +69,33 @@ efw:
 # ------------------------------------------------------------ LMS centiles ---
 # Table 2. GA in exact weeks. These make a lookup table unnecessary: any
 # centile or Z-score is computable in closed form.
+# Each parameter carries its equation as published and the same coefficients
+# machine-readable, in the shape `efw.coefficients` below already uses. Signs
+# are part of the coefficient, as they are there. The functional form lives in
+# code; only the numbers come from here.
 lms:
-  lambda: |
-    L(GA) = -4.257629 - 2162.234 * GA^-2 + 0.0002301829 * GA^3
-  mu: |
-    M(GA) = 4.956737 + 0.0005019687 * GA^3 - 0.0001227065 * GA^3 * log(GA)
-  sigma: |
-    S(GA) = 1e-4 * (-6.997171 + 0.057559 * GA^3 - 0.01493946 * GA^3 * log(GA))
+  lambda:
+    equation: |
+      L(GA) = -4.257629 - 2162.234 * GA^-2 + 0.0002301829 * GA^3
+    coefficients:
+      intercept: -4.257629
+      ga_inv_sq: -2162.234
+      ga_cubed:   0.0002301829
+  mu:
+    equation: |
+      M(GA) = 4.956737 + 0.0005019687 * GA^3 - 0.0001227065 * GA^3 * log(GA)
+    coefficients:
+      intercept:     4.956737
+      ga_cubed:      0.0005019687
+      ga_cubed_log: -0.0001227065
+  sigma:
+    equation: |
+      S(GA) = 1e-4 * (-6.997171 + 0.057559 * GA^3 - 0.01493946 * GA^3 * log(GA))
+    coefficients:
+      scale:         1.0e-4
+      intercept:    -6.997171
+      ga_cubed:      0.057559
+      ga_cubed_log: -0.01493946
 
   # Y = log(EFW). NOTE: the published table's two branches are frequently
   # OCR'd identically; the second is lambda NOT equal to zero.

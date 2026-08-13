@@ -43,8 +43,15 @@ centiles:
     Because dispersion is a closed-form function of the median, any centile is
     computable. The five above are the ones Table 1 prints.
 
+# MA is menstrual age in decimal weeks to the nearest tenth. Coefficients are
+# the same numbers the equation prints, machine-readable; signs are part of
+# the coefficient. The functional form lives in code.
 median:
   equation: "ln(W_grams) = 0.578 + 0.332*MA - 0.00354*MA^2"
+  coefficients:
+    intercept:   0.578
+    ma:          0.332
+    ma_squared: -0.00354
   r2_pct: 99.1
 
 dispersion:
