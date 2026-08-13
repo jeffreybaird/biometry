@@ -25,21 +25,27 @@ module Biometry
             @range = manifest[:valid_ga_weeks]
             @paired = manifest[:paired_formula].to_sym
             @published = manifest[:centiles]
+            @sexes = manifest[:stratification][:values].map(&:to_sym)
             @source = manifest[:source]
           end
 
           def call(ga:, centile:, sex: nil)
-            weeks = ga.completed_weeks
             chart = sex || COMBINED
+            return unknown_sex(sex) unless sexes.include?(chart)
+
+            read(ga.completed_weeks, centile, chart)
+          end
+
+          private
+
+          attr_reader :table, :range, :paired, :published, :sexes, :source
+
+          def read(weeks, centile, chart)
             return out_of_range(weeks) unless weeks.between?(range.first, range.last)
             return unsupported(centile, chart) unless available(chart).include?(centile)
 
             Success(weight(centile, weeks, chart))
           end
-
-          private
-
-          attr_reader :table, :range, :paired, :published, :source
 
           def available(chart)
             published[chart == COMBINED ? :combined : :sex_specific]
@@ -47,6 +53,14 @@ module Biometry
 
           def out_of_range(weeks)
             Failure([:out_of_range, { standard: STANDARD, ga_weeks: weeks, valid_range: range }])
+          end
+
+          # A sex WHO does not publish is a caller's mistake, not a bug: it
+          # gets a Result to branch on and exit 1, the same shape the
+          # percentile adapter returns. Without this the table lookup finds no
+          # row and the nil dereference raises, which exe/ maps to exit 70.
+          def unknown_sex(sex)
+            Failure([:invalid_input, { sex: sex, available: sexes }])
           end
 
           def unsupported(centile, chart)

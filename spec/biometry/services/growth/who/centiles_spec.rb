@@ -103,4 +103,43 @@ RSpec.describe Biometry::Services::Growth::Who::Centiles do
       )
     end
   end
+
+  # A sex WHO does not publish is a caller's mistake, not a bug. It gets a
+  # Result to branch on and exit 1, rather than the nil row the table lookup
+  # would otherwise dereference on its way to exit 70.
+  context 'when the sex is one the standard does not publish' do
+    let(:strata) { manifest[:stratification][:values].map(&:to_sym) }
+    let(:percentiles) do
+      Biometry::Services::Growth::Who.new(manifest: manifest, table: table)
+    end
+    let(:estimate) do
+      Biometry::Estimate.new(
+        value: 1700, unit: 'g', formula: manifest[:paired_formula].to_sym,
+        inputs: %i[hc ac fl], uncertainty: Biometry::Uncertainty.pooled(8.0),
+        source: Biometry::Provenance.formula(standard: :hadlock, citation: 'x',
+                                             formula: manifest[:paired_formula].to_sym)
+      )
+    end
+
+    it 'refuses it, naming the charts it does publish' do
+      expect(call(50, weeks(32), sex: :unknown).failure).to eq(
+        [:invalid_input, { sex: :unknown, available: strata }]
+      )
+    end
+
+    # Settled before the centile is looked at: without a chart there is no
+    # list of published centiles to refuse the request against.
+    it 'refuses the sex rather than the tail that chart would never have published' do
+      expect(call(2.5, weeks(32), sex: :unknown).failure).to eq(
+        [:invalid_input, { sex: :unknown, available: strata }]
+      )
+    end
+
+    # The two directions through the same table answered this differently
+    # once; a weight request refused it while a centile request raised.
+    it 'refuses it on the same terms as the percentile direction' do
+      expect(percentiles.call(estimate: estimate, ga: weeks(32), sex: :unknown).failure)
+        .to eq(call(50, weeks(32), sex: :unknown).failure)
+    end
+  end
 end
