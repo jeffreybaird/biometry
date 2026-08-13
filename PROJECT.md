@@ -597,25 +597,49 @@ needs its own type rather than a coerced `sd_pct`.
 Given an EFW, a GA, and optionally a stratum, return the percentile under each
 available standard.
 
-**Pin these before spec-writer runs**, or four adapters will decide them four
-different ways:
+### Pinned before forking — decided 2026-08-13
 
-1. **Interpolation between weeks** — undefined in every source. One rule,
-   applied identically across both table-based adapters.
-2. **Interpolation between centiles** — same. WHO's distribution is
-   deliberately asymmetric (Bowley coefficient -0.016 at 15 weeks to +0.111 at
-   40), so linear interpolation is a worse approximation there than for the
-   log-normal standards.
-3. **Out of range** — differs per standard. `:out_of_range` naming the standard
-   and its window. Never extrapolate.
-4. **NICHD weeks 10–14** — present in the CSV, outside the fitted range. The
-   loader filters them; the CSV keeps them so it can be diffed against the
-   published table.
-5. **Missing stratum** — WHO has a combined table. NICHD has none. Decide what
-   NICHD returns when race/ethnicity is not supplied.
-6. **Unavailable centile** — WHO's sex-specific tables omit 2.5 and 97.5.
-   Fall back to combined and say so, or return `:unsupported_centile`. Do not
-   interpolate them.
+These are settled. An adapter does not get to answer them again.
+
+**1. No interpolation between weeks.** Both table standards publish per
+completed week and both declare `ga_units: completed_weeks`, so read the row
+for `GestationalAge#completed_weeks`. Interpolating would synthesise a row the
+source never published. The two equation standards evaluate at their own GA
+convention — `exact_weeks` for INTERGROWTH, `tenth_weeks` for Hadlock 1991 —
+which is why `GestationalAge` carries all three. Output names the week used.
+
+**2. Linear in weight between centiles.** Converting an EFW to a percentile
+against a table means interpolating between the bracketing columns; do it
+linearly on weight, identically in both table adapters, and state the method in
+output. WHO's distribution is deliberately asymmetric (Bowley coefficient
+-0.016 at 15 weeks to +0.111 at 40), so this is a worse approximation there
+than for the log-normal standards — say so rather than hiding it.
+
+**Outside the published centiles, do not extrapolate.** An EFW below the lowest
+or above the highest published column reports the open bracket — "below the
+3rd", "above the 97th" — because a table cannot answer further out. Equation
+standards compute any centile in closed form and have no such limit.
+
+**3. Out of range** — per standard. `:out_of_range` naming the standard and its
+window. Never extrapolate.
+
+**4. NICHD weeks 10–14** — present in the CSV, outside the fitted range. The
+adapter rejects them with `:out_of_range`; the CSV keeps them so it can be
+diffed against the published table.
+
+**5. NICHD with no stratum returns all four charts.** It publishes no combined
+table, and race/ethnicity is never inferred or defaulted — so the honest answer
+to an unspecified stratum is the spread itself. That spread is the paper's own
+headline finding: applying the white-derived standard to everyone misclassifies
+as much as 15% of non-white fetuses as growth restricted at the 5th centile.
+This makes NICHD the one adapter that returns several rows from one call. Every
+row names its chart.
+
+**6. WHO 2.5th and 97.5th with a sex supplied returns
+`:unsupported_centile`** naming the standard, the request and what is
+available. Tables 14 and 15 genuinely omit those columns, and answering from
+the combined table would put two populations in one row. Do not interpolate
+them.
 
 **This is the slice worth a parallel fan-out**, and `implementer.md` with
 `isolation: worktree` already exists for it. Four files, one shared interface,
