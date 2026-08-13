@@ -8,8 +8,7 @@ module Fixtures
       'hadlock.yml' => [
         '1991 median equation at selected weeks',
         '1991 centiles at 32 weeks',
-        '1991 centiles at 40 weeks',
-        'microcephalic fetus from the 1985 discussion'
+        '1991 centiles at 40 weeks'
       ],
       'intergrowth21.yml' => [
         'worked example, EFW',

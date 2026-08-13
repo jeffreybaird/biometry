@@ -20,21 +20,34 @@ efw_formulas:
     equation: "log10(W) = 1.304 + 0.05281*AC + 0.1938*FL - 0.004*AC*FL"
     sd_pct: 8.0
     r2_pct: 97.3
+    verified: false
+    verified_note: >
+      Single hand transcription of Table II with no independent check, and no
+      chart in this project pairs with it. See known_issues
+      unconfirmed_table_ii_rows.
 
   bpd_ac_fl:
     requires: [bpd, ac, fl]
     equation: "log10(W) = 1.335 - 0.0034*AC*FL + 0.0316*BPD + 0.0457*AC + 0.1623*FL"
     sd_pct: 7.5
     r2_pct: 97.6
+    verified: false
+    verified_note: >
+      Single hand transcription of Table II with no independent check, and no
+      chart in this project pairs with it. See known_issues
+      unconfirmed_table_ii_rows.
 
   hc_ac_fl:
     requires: [hc, ac, fl]
     equation: "log10(W) = 1.326 - 0.00326*AC*FL + 0.0107*HC + 0.0438*AC + 0.158*FL"
     sd_pct: 7.5
     r2_pct: 97.6
+    verified: true
     note: >
       The authors' recommended general-use model. Independently confirmed
-      against LOINC 11746-5 and against INTERGROWTH's 2021 paper.
+      against LOINC 11746-5 and against INTERGROWTH's 2021 paper. Two outside
+      sources publish these coefficients, which is why this row is verified
+      without a worked example. Paired with the WHO and NICHD charts.
 
   bpd_hc_ac_fl:
     requires: [bpd, hc, ac, fl]
@@ -43,6 +56,12 @@ efw_formulas:
                  + 0.0424*AC + 0.174*FL
     sd_pct: 7.4
     r2_pct: 97.7
+    verified: false
+    verified_note: >
+      BLOCKING FOR SLICE 4. Single hand transcription of Table II with no
+      independent check, and the hadlock_1991 chart pairs with this formula.
+      Re-read Table II's fourth row in the 1985 PDF and set this true before
+      the Hadlock 1991 adapter is built.
     note: >
       THIS is the formula the 1991 growth standard was built on. The 1991
       paper reports the model it used had 0.1% mean error and 7.4% SD, which
@@ -81,6 +100,39 @@ hadlock_1991:
 
 # =============================================================== ERRATA ======
 known_issues:
+  - id: microcephalic_fixture_withdrawn
+    severity: high
+    detail: >
+      A fixture named "microcephalic fetus from the 1985 discussion" was
+      removed on 2026-08-13. It claimed inputs BPD 5.7 / HC 21.3 / AC 28.5 /
+      FL 7.5 cm produce 2415 g under hc_ac_fl against an actual birth weight
+      of 2250 g. Those inputs give 1951.6 g under hc_ac_fl, and no formula in
+      this file produces 2415 g from them (ac_fl 2556.1, bpd_ac_fl 2032.7,
+      bpd_hc_ac_fl 1920.2). The quoted 2415 g is exactly 2250 x 1.073, so the
+      example was internally consistent between its output and its error while
+      being inconsistent with its own inputs — the signature of a fabricated
+      example rather than a mis-transcription. No line in the 1985 paper was
+      ever identified as its source. Withdrawn rather than corrected, because
+      there is nothing to correct it against. Do not reinstate it without a
+      page reference.
+
+  - id: unconfirmed_table_ii_rows
+    severity: high
+    detail: >
+      Only hc_ac_fl has confirmation outside this project's own transcription:
+      LOINC 11746-5 and INTERGROWTH's 2021 paper both publish its
+      coefficients. ac_fl, bpd_ac_fl and bpd_hc_ac_fl rest on a single hand
+      transcription of Table II with nothing checking it, and the withdrawal
+      of the microcephalic fixture leaves them with no worked example either.
+      All three carry verified: false.
+
+      bpd_hc_ac_fl is the urgent one: the hadlock_1991 growth chart pairs with
+      it, so slice 4's Hadlock adapter is blocked until Table II's fourth row
+      is re-read from the 1985 PDF and the flag set true.
+
+      ac_fl and bpd_ac_fl are unused — no chart in this project pairs with
+      either — and are candidates for removal rather than verification.
+
   - id: abstract_sd_contradicts_table
     severity: high
     detail: >
@@ -117,15 +169,6 @@ fixtures:
     inputs: { ga_weeks: 40 }
     expect_g: { p3: 2714, p10: 3004, p50: 3619, p90: 4234, p97: 4524 }
     tolerance_g: 3
-
-  - name: "microcephalic fetus from the 1985 discussion"
-    inputs: { bpd_cm: 5.7, hc_cm: 21.3, ac_cm: 28.5, fl_cm: 7.5 }
-    formula: hc_ac_fl
-    expect: { efw_g: 2415, actual_birth_weight_g: 2250, error_pct: 7.3 }
-    note: >
-      The paper reports this case to show why head, trunk and limb must all
-      be used. A BPD+AC model was off by 46.8%; hc_ac_fl was off by 7.3%.
-      Good regression test for formula selection.
 
 accuracy:
   note: >
