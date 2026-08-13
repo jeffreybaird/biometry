@@ -39,24 +39,28 @@ data/                      reference constants (see below)
 
 ### Reference data, as committed
 
-| file | contents | state |
+| file | kind | contents |
 |---|---|---|
-| `data/hadlock.yml` | 4 EFW formulas (1985) + growth standard (1991) | ready |
-| `data/intergrowth21.yml` | EFW formula + LMS centile equations (2017) | ready |
-| `data/nichd.yml` | manifest (2015) | ready |
-| `data/who.yml` | manifest (2017) | ready |
-| `data/percentiles/nichd.csv` | 4 groups x 31 weeks x 7 centiles | ready |
-| `data/percentiles/who.csv` | 3 sexes x 27 weeks | ready |
-| `data/acog_redating.yml` | redating thresholds | **`verified: true`** (2026-08-13) |
+| `data/hadlock_1985.yml` | formulas | 4 EFW regressions, Table II |
+| `data/hadlock_1991.yml` | chart | median + dispersion equations |
+| `data/intergrowth21.yml` | chart + formula | EFW formula and LMS centile equations |
+| `data/nichd.yml` | chart | manifest for `percentiles/nichd.csv` |
+| `data/who.yml` | chart | manifest for `percentiles/who.csv` |
+| `data/percentiles/nichd.csv` | table | 4 groups x 31 weeks x 7 centiles |
+| `data/percentiles/who.csv` | table | 3 sexes x 27 weeks |
+| `data/acog_redating.yml` | thresholds | redating bands, `verified: true` |
 
-Every manifest carries `source`, `known_issues`, and `fixtures`. Two fields are
-**not** uniform across them, and code must not assume they are:
+**The four chart manifests share a schema**, and the fixture harness holds them
+to it: `source.access` (`equation` or `table`), `paired_formula`,
+`valid_ga_weeks`, a `stratification` block with a `field` key, `centiles`, and
+`known_issues`. `hadlock_1985.yml` publishes formulas rather than a chart and
+`acog_redating.yml` is neither, so both sit outside that schema.
 
-- `valid_ga_weeks` is top-level in `intergrowth21.yml`, `nichd.yml` and
-  `who.yml`, but nested under `hadlock_1991` in `hadlock.yml`.
-- `paired_formula` is stated in `hadlock.yml` (nested), `nichd.yml` and
-  `who.yml`. **`intergrowth21.yml` has no such key** — the pairing appears only
-  in prose. Slice 4's `:formula_chart_mismatch` check needs it from somewhere.
+**Formula ids are global.** A chart's `paired_formula` names an id published in
+some other file — `hadlock_bpd_hc_ac_fl` and `hadlock_hc_ac_fl` in
+`hadlock_1985.yml`, `intergrowth` in `intergrowth21.yml`'s own `efw` block. The
+harness checks that every pairing resolves, which is how a split or a rename
+gets caught.
 
 `data/` also holds `soa_maternal_participants.csv` and
 `soa_legend_and_footnotes.csv`. Those are the RSV protocol extraction, are
@@ -333,12 +337,16 @@ purpose: it validates `data/` and the loader together, before any spec exists
 to be written against them, and `scripts/protect-tests.sh` reserves `spec/`
 for spec-writer.
 
-Current state: **35 passed, 0 failed, 8 pending.**
+Current state: **53 passed, 0 failed, 6 pending.**
 
-The 8 pending are every fixture backed by an equation — the four in
-`hadlock.yml` and the four in `intergrowth21.yml`. Nothing evaluates them until
-slices 3 and 4 exist. They are printed as PENDING by name rather than skipped,
-so the pass count cannot be mistaken for full coverage.
+The 6 pending are the growth-standard fixtures — three in `hadlock_1991.yml`
+and three in `intergrowth21.yml` — which slice 4 evaluates. They are printed as
+PENDING by name rather than skipped, so the pass count cannot be mistaken for
+full coverage.
+
+It also holds the four chart manifests to their shared schema and checks that
+every `paired_formula` resolves to a formula some file publishes. That
+cross-file check is what catches a split or a rename going wrong silently.
 
 What is checked now is everything backed by a table, which needs only the CSV:
 
@@ -486,7 +494,7 @@ answer would flip on the other side.
 ## Slice 3 — estimated fetal weight
 
 **Owns:** `lib/biometry/services/weight/`
-**Reads:** `data/hadlock.yml`, `data/intergrowth21.yml`
+**Reads:** `data/hadlock_1985.yml`, `data/intergrowth21.yml`
 
 Given a `Scan`, compute EFW by every formula the available measurements
 support, and return all of them. Selecting one is the caller's job.
@@ -494,12 +502,12 @@ support, and return all of them. Selecting one is the caller's job.
 Missing a required parameter is `Failure([:insufficient_data, ...])` naming
 what was missing — not a skipped formula, not a substituted value.
 
-**Status: done.** `Equation`, `Hadlock`, `Intergrowth`, `AllFormulas`, 60
-examples. Two formulas are offered — `hc_ac_fl` and `intergrowth`.
+**Status: done.** `Equation`, `Hadlock`, `Intergrowth`, `AllFormulas`. Five
+formulas are offered: the four Hadlock 1985 regressions and `intergrowth`.
 
 ### Coefficients are parsed, not transcribed
 
-`data/hadlock.yml` publishes no `coefficients:` block. The numbers exist only
+`data/hadlock_1985.yml` publishes no `coefficients:` block. The numbers exist only
 inside the `equation:` strings, so `Equation` parses them; retyping one into
 Ruby would be supplying a clinical constant from outside `data/`.
 
@@ -512,20 +520,20 @@ block instead, with the functional form in code.
 
 ### The loader prunes; services have no verified check
 
-`hc_ac_fl` is the only Hadlock row with confirmation outside this project's own
-transcription (LOINC 11746-5, INTERGROWTH 2021). `ac_fl` and `bpd_ac_fl` were
-deleted on 2026-08-13 — nothing paired with them, and an unverifiable constant
-sitting in the file invites use. `bpd_hc_ac_fl` stays, marked
-`verified: false`, because the 1991 chart needs it.
-
 `ReferenceData.load_manifest` returns `[data, dropped]`. A file whose
 *top-level* `verified` is false still raises. An entry *within* a file that is
 marked unverified is pruned, so it never reaches a service:
 
 ```ruby
 data, dropped = ReferenceData.load_manifest(path)
-# dropped => [[:efw_formulas, :bpd_hc_ac_fl]]
+# dropped => [[:efw_formulas, :some_unverified_row]]
 ```
+
+**Nothing under `data/` is currently unverified**, so pruning is a no-op
+against real data and the specs pin it with tmpdir fixtures instead. The
+real-data spec asserts the invariant — every manifest loads with an empty
+`dropped` — which fails loudly the day a row is marked unverified. That is the
+signal worth having.
 
 That collapses "unverified" into "absent", which every adapter already handles
 via its missing-entry path. The rejected alternative was a guard inside each
@@ -544,29 +552,40 @@ Arrays are walked too: `acog_redating.yml`'s `bands:` is a list, and slice 2
 must not receive an unverified band any more than slice 3 may receive an
 unverified formula.
 
-### The withdrawn fixture
+### Hadlock has no numeric anchor
 
-A `microcephalic fetus from the 1985 discussion` fixture claiming 2415 g was
-deleted on 2026-08-13: its own inputs give 1951.6 g under `hc_ac_fl`, and no
-formula in the file produces 2415 g from them. See `known_issues`
-`microcephalic_fixture_withdrawn`. INTERGROWTH's worked example — AC 26 cm,
-HC 29 cm -> 1499 g — is now the only published anchor in this slice, and it
-reproduces within the manifest's 1 g tolerance.
+`hadlock_1985.yml` carries `fixtures: []`. Its withdrawn fixture claimed
+2415 g from inputs that yield 1951.6 g under `hadlock_hc_ac_fl`, and no formula
+in the file produces 2415 g from them — see `known_issues`
+`microcephalic_fixture_withdrawn`.
 
-### Struck: error by stratum
+**Consequence, and it is the largest open risk in the library.** The four
+Hadlock formulas are pinned only by the parser's grammar specs and by the
+property that the adapter evaluates the manifest string over centimetres and
+exponentiates base 10. A mis-transcribed coefficient would pass the entire
+suite. INTERGROWTH's worked example — AC 26 cm, HC 29 cm -> 1499 g within 1 g —
+is the only end-to-end numeric anchor anywhere in this library.
 
-This section used to require reporting error by birth-weight band rather than
-pooled, because Hadlock's errors run about 4.6% low below 1500 g and 6.3% high
-above 4000 g and the tails are where this tool is aimed.
+Transcribing one worked example per Hadlock formula from the 1985 paper would
+close it.
 
-**The requirement is withdrawn.** It was unsatisfiable twice over: the Table I
-breakdown is not in `data/` — `accuracy:` is a prose note quoting two of its
-figures — and `Estimate` has no member that can carry uncertainty to a caller
-at all, so there was nowhere to put the number even if the table existed.
+### Uncertainty
 
-Reinstate it only as one piece of work covering both halves: transcribe Table I
-into `data/hadlock.yml`, and give `Estimate` an uncertainty member. Half of it
-is not worth building.
+`Estimate#uncertainty` carries `Uncertainty(sd_pct:, basis:)`, sourced from the
+manifest row's `sd_pct`. `basis` is always `:pooled`: Table I's per-stratum
+figures are not transcribed, so `:stratified` is unreachable and must not be
+faked. `hadlock_1985.yml`'s `accuracy_strata_not_transcribed` records this.
+
+That matters because Hadlock's errors are asymmetric — about 4.6% low below
+1500 g, 6.3% high above 4000 g — so a pooled SD understates uncertainty in
+exactly the tails this tool is aimed at. Transcribing Table I is what changes
+`basis`.
+
+**INTERGROWTH's `uncertainty` is `nil`, deliberately.** Its `accuracy:` block
+publishes a mean absolute prediction error of 7.6% and a coverage interval;
+neither is a standard deviation, and reporting either as one would attribute a
+figure to the paper it never gave. If that accuracy should reach a reader, it
+needs its own type rather than a coerced `sd_pct`.
 
 ---
 
@@ -669,29 +688,26 @@ scrape numbers out of prose.
 0. scaffolding + shared types + loader     done, committed
 1. gestational age                         ready
 2. redating                                ready; acog_redating.yml verified 2026-08-13
-3. EFW                                     done; 2 of 5 formulas offered
-4. percentiles                             blocked on bpd_hc_ac_fl; fan-out candidate
+3. EFW                                     done; all 5 formulas offered
+4. percentiles                             unblocked; fan-out candidate
 5. presentation                            depends on 1, 3 and 4
 6. HL7                                     independent; do last
 ```
 
-Slice 3 is done. Slice 4 is the natural next step but is **partly blocked**:
-the Hadlock 1991 chart pairs with `bpd_hc_ac_fl`, which carries
-`verified: false`. Re-read Table II's fourth row in the 1985 PDF and set the
-flag before that adapter is built. The INTERGROWTH, NICHD and WHO adapters are
-unaffected — they pair with `intergrowth` and `hc_ac_fl`, both offered.
+Slice 3 is done and slice 4 is unblocked: every formula the four charts pair
+with is published and verified, and the harness checks each pairing resolves.
 
-Two decisions remain before slice 4 forks. The other two are settled: the
-`:method` rename is done, and per-row `verified` flags are the loader's problem
-rather than each adapter's.
+**One decision remains before slice 4 forks**, down from four. The others are
+settled: the `:method` rename is done, per-row `verified` flags are the
+loader's problem rather than each adapter's, and `intergrowth21.yml` now states
+`paired_formula: intergrowth`.
 
 1. **The interpolation rule**, between weeks and between centiles. Undefined in
    every source, so it is our choice and must be identical across both
    table-based adapters.
-2. **Where INTERGROWTH's paired formula comes from.** `intergrowth21.yml`
-   states no `paired_formula`, unlike the other three manifests, so slice 4's
-   `:formula_chart_mismatch` check has nothing to read. Adding
-   `paired_formula: intergrowth` to that manifest would resolve it — the
-   pairing is self-referential, since INTERGROWTH built its centiles from its
-   own EFW formula rather than a Hadlock model. `data/` is yours to edit;
-   nothing else should.
+
+Worth keeping in view while building slice 4: INTERGROWTH's pairing is
+self-referential — it built its centiles from its own EFW formula, not a
+Hadlock model — so `:formula_chart_mismatch` there means something different in
+kind from the NICHD and WHO case, where the chart must be read from a
+*foreign* formula. The field is uniform; what it points at is not.

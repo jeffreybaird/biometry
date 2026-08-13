@@ -38,7 +38,8 @@ Both were written for a generic Ruby CLI. Two edits needed before use:
 
 | Artifact | Path in repo | Consumed by |
 |---|---|---|
-| `hadlock.yml` | `data/hadlock.yml` | slice 3 (EFW), slice 4 (growth) |
+| `hadlock_1985.yml` | `data/hadlock_1985.yml` | slice 3 (EFW formulas) |
+| `hadlock_1991.yml` | `data/hadlock_1991.yml` | slice 4 (growth standard) |
 | `intergrowth21_efw.yml` | `data/intergrowth21.yml` | slice 3, slice 4 |
 | `nichd.yml` | `data/nichd.yml` | slice 4 |
 | `nichd_efw_percentiles.csv` | `data/percentiles/nichd.csv` | slice 4 |
@@ -122,14 +123,14 @@ primary document. Two details that must be captured and are easy to lose:
 
 ### Slice 3 — estimated fetal weight
 
-Reads: `data/hadlock.yml` (four formulas), `data/intergrowth21.yml` (one).
+Reads: `data/hadlock_1985.yml` (four formulas), `data/intergrowth21.yml` (one).
 
 Five formulas total, not four. Each declares its required parameters.
 
 Spec-writer prompt:
 
 > Use spec-writer for slice 3 (EFW) per PROJECT.md. The five formulas and
-> their coefficients are in `data/hadlock.yml` and `data/intergrowth21.yml` —
+> their coefficients are in `data/hadlock_1985.yml` and `data/intergrowth21.yml` —
 > read them, do not derive or recall any coefficient. Every file carries a
 > `fixtures:` block; build specs from those fixtures first, then add
 > `:insufficient_data` cases for each formula's missing-parameter paths.
