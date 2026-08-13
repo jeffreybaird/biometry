@@ -35,11 +35,16 @@ module Biometry
           @source = manifest[:source]
         end
 
+        # Guards answer in one order across every adapter: pairing, then
+        # range, then stratum. A mismatched formula means the weight is not
+        # something this chart can interpret at all; a GA outside the window
+        # means the chart cannot answer whichever stratum you would have
+        # picked. The stratum only selects which of the chart's tables to
+        # read, so it is the last question worth asking.
         def call(estimate:, ga:, stratum: nil)
           return mismatch(estimate) unless estimate.formula == paired
-          return unknown_stratum(stratum) unless known?(stratum)
 
-          read_at(estimate.value, ga.completed_weeks, charts_for(stratum))
+          read_at(estimate.value, ga.completed_weeks, stratum)
         end
 
         private
@@ -63,10 +68,11 @@ module Biometry
           Failure([:invalid_input, { stratum: stratum, available: strata }])
         end
 
-        def read_at(grams, weeks, charts)
+        def read_at(grams, weeks, stratum)
           return out_of_range(weeks) unless weeks.between?(range.first, range.last)
+          return unknown_stratum(stratum) unless known?(stratum)
 
-          Success(charts.map { |chart| read(grams, weeks, chart) })
+          Success(charts_for(stratum).map { |chart| read(grams, weeks, chart) })
         end
 
         def read(grams, weeks, chart)

@@ -38,12 +38,13 @@ module Biometry
           @source = manifest[:source]
         end
 
+        # Guards answer in one order across every adapter: pairing, then
+        # range, then stratum. See Nichd#call for the reasoning; the two table
+        # adapters must not disagree about which failure a caller sees.
         def call(estimate:, ga:, sex: nil)
-          chart = sex || COMBINED
           return mismatch(estimate) unless estimate.formula == paired
-          return unknown_sex(sex) unless sexes.include?(chart)
 
-          read_at(estimate.value, ga.completed_weeks, chart)
+          read_at(estimate.value, ga.completed_weeks, sex)
         end
 
         private
@@ -63,8 +64,10 @@ module Biometry
           Failure([:invalid_input, { sex: sex, available: sexes }])
         end
 
-        def read_at(grams, weeks, chart)
+        def read_at(grams, weeks, sex)
+          chart = sex || COMBINED
           return out_of_range(weeks) unless weeks.between?(range.first, range.last)
+          return unknown_sex(sex) unless sexes.include?(chart)
 
           Success(read(grams, weeks, chart))
         end

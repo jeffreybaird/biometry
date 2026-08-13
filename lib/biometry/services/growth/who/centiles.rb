@@ -29,19 +29,26 @@ module Biometry
             @source = manifest[:source]
           end
 
+          # Same precedence as the percentile adapters, minus the pairing step
+          # this direction has no estimate to check: range, then stratum, then
+          # centile. The two directions through the WHO table must answer the
+          # same input the same way.
           def call(ga:, centile:, sex: nil)
-            chart = sex || COMBINED
-            return unknown_sex(sex) unless sexes.include?(chart)
-
-            read(ga.completed_weeks, centile, chart)
+            read(ga.completed_weeks, centile, sex)
           end
 
           private
 
           attr_reader :table, :range, :paired, :published, :sexes, :source
 
-          def read(weeks, centile, chart)
+          # The sex check stays above the centile check: without a valid chart
+          # there is no list of available centiles to check a request against,
+          # so a bad sex would otherwise be reported as :unsupported_centile
+          # citing a list belonging to no chart the caller named.
+          def read(weeks, centile, sex)
+            chart = sex || COMBINED
             return out_of_range(weeks) unless weeks.between?(range.first, range.last)
+            return unknown_sex(sex) unless sexes.include?(chart)
             return unsupported(centile, chart) unless available(chart).include?(centile)
 
             Success(weight(centile, weeks, chart))
