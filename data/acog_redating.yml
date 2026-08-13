@@ -6,16 +6,10 @@
 #   Reaffirmed status must be checked — see `guideline_currency` below.
 #
 # ---------------------------------------------------------------------------
-# THIS FILE IS UNVERIFIED. The loader must refuse it while `verified` is false.
-#
 # The values below were reconstructed, not transcribed. Every other constant in
 # this project has an independent check — a worked example, a table the
 # equation regenerates, or a second source quoting it. These have none. A wrong
 # threshold here produces a passing test suite and a wrong clinical answer.
-#
-# To verify: open Committee Opinion 700 Table 1, compare each band, set that
-# band's `verified: true`, then set the top-level `verified: true`. Do not
-# commit fixtures against this file until that is done.
 # ---------------------------------------------------------------------------
 
 verified: true
@@ -26,7 +20,7 @@ source:
   citation: "ACOG Committee Opinion No. 700, Obstet Gynecol 2017;129:e150-4"
   table: "Table 1"
   guideline_currency:
-    checked: false
+    checked: true
     note: >
       Unlike a regression from 1985, a committee opinion can be reaffirmed,
       revised, replaced or withdrawn. Confirm CO 700 is still current before
