@@ -1,0 +1,100 @@
+# Hadlock 1991 — sonographic fetal weight growth standard
+#
+# Transcribed by hand from the source PDF (Table 1 and the Results section).
+
+source:
+  citation: "Hadlock FP, Harrist RB, Martinez-Poyer J. In utero analysis of fetal growth: a sonographic weight standard. Radiology 1991;181(1):129-133."
+  pmid: "1887021"
+  year: 1991
+  kind: growth_standard
+  type: reference
+  access: equation
+  cohort_n: 392
+  population: >
+    392 predominantly middle-class white women with certain menstrual dates.
+    Single-centre. This narrow base is the limitation the NICHD race-stratified
+    charts were a response to.
+
+paired_formula: hadlock_bpd_hc_ac_fl
+paired_formula_note: >
+  Identified from the 1991 paper's own report of 0.1% mean error and 7.4% SD,
+  which matches only the four-parameter row of the 1985 Table III. NOT the
+  three-parameter model that NICHD and WHO use. Do not read this chart from a
+  hadlock_hc_ac_fl weight.
+
+valid_ga_weeks: [10, 40]
+valid_ga_weeks_note: "Model fitted 10-41 weeks; Table 1 published 10-40."
+
+ga_units: decimal_weeks_nearest_tenth
+ga_note: >
+  The paper codes GA to the nearest tenth of a week: 39 weeks 3 days is coded
+  39.4, not 39.43. Round to one decimal before evaluating.
+
+stratification:
+  field: null
+  required: false
+  values: []
+  note: "No sex, ethnicity or country stratification."
+
+centiles:
+  published: [3, 10, 50, 90, 97]
+  computable: any
+  computable_note: >
+    Because dispersion is a closed-form function of the median, any centile is
+    computable. The five above are the ones Table 1 prints.
+
+median:
+  equation: "ln(W_grams) = 0.578 + 0.332*MA - 0.00354*MA^2"
+  r2_pct: 99.1
+
+dispersion:
+  model: additive_normal_pct_of_median
+  sd_pct: 13.3
+  sd_pct_source: back-calculated from the published Table 1 centiles
+  centile: "C(alpha) = median * (1 + Z(alpha) * 0.133)"
+  published_ratios:                # C / median, constant across all 31 weeks
+    p3:  0.750
+    p10: 0.830
+    p90: 1.170
+    p97: 1.250
+
+interpolation:
+  between_weeks: not_applicable    # closed form; evaluate at any GA in range
+  between_centiles: not_applicable
+
+known_issues:
+  - id: abstract_sd_contradicts_table
+    severity: high
+    detail: >
+      The abstract states variance of +/-12.7% (1 SD). The published Table 1
+      centiles are exactly median x {0.750, 0.830, 1.170, 1.250} at every
+      week, which implies 13.3%, not 12.7%. Using 12.7% gives a 3rd centile of
+      1187 g at 30 weeks where the paper prints 1169 g. The Discussion and
+      Table 3 both say 13%, supporting 13.3% over the abstract.
+      IMPLEMENT 13.3%. Subject of an active 2025 AJOG exchange (Roberts et
+      al., "Revisiting the Hadlock 1991 population reference", and the reply).
+
+  - id: table1_week30_p97_typo
+    severity: high
+    detail: >
+      Table 1 prints 1,649 g for the 97th centile at 30 weeks. That is below
+      the 90th centile of 1,824 g and therefore impossible. The ratio-implied
+      value is 1,949 g. Confirmed by inspecting the page scan, so it is a
+      typographical error in the published table rather than an OCR artifact.
+      This file computes centiles from the equation, so the typo does not
+      propagate — but any verbatim transcription of Table 1 must flag it.
+
+fixtures:
+  - name: "median equation at selected weeks"
+    expect_g: { 10: 35, 20: 331, 30: 1559, 40: 3619 }
+    tolerance_pct: 1.2
+
+  - name: "centiles at 32 weeks"
+    inputs: { ga_weeks: 32 }
+    expect_g: { p3: 1465, p10: 1621, p50: 1953, p90: 2285, p97: 2441 }
+    tolerance_g: 3
+
+  - name: "centiles at 40 weeks"
+    inputs: { ga_weeks: 40 }
+    expect_g: { p3: 2714, p10: 3004, p50: 3619, p90: 4234, p97: 4524 }
+    tolerance_g: 3

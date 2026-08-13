@@ -48,6 +48,15 @@ band_indexed_on_note: >
   ACOG Table 1's header column may carry a footnote resolving this explicitly.
   Read it and record the answer here.
 
+known_issues:
+  - id: wholly_unverified
+    severity: blocking
+    detail: >
+      Every threshold, the band-indexing rule and both caveats were
+      reconstructed rather than transcribed. No computation regenerates them
+      and no second source in data/ quotes them. The loader raises while
+      `verified` is false.
+
 # ------------------------------------------------------------------ bands ---
 # Ordered. First band whose window contains the indexing GA wins.
 # `threshold_days` is EXCLUSIVE: redate when discrepancy is strictly greater.
@@ -55,35 +64,35 @@ bands:
   - id: crl_early
     ga_from: { weeks: 0,  days: 0 }
     ga_to:   { weeks: 8,  days: 6 }
-    method: crl
+    measurement: crl
     threshold_days: 5
     verified: true
 
   - id: crl_late
     ga_from: { weeks: 9,  days: 0 }
     ga_to:   { weeks: 13, days: 6 }
-    method: crl
+    measurement: crl
     threshold_days: 7
     verified: true
 
   - id: biometry_14_15
     ga_from: { weeks: 14, days: 0 }
     ga_to:   { weeks: 15, days: 6 }
-    method: biometry            # BPD, HC, AC, FL
+    measurement: biometry            # BPD, HC, AC, FL
     threshold_days: 7
     verified: true
 
   - id: biometry_16_21
     ga_from: { weeks: 16, days: 0 }
     ga_to:   { weeks: 21, days: 6 }
-    method: biometry
+    measurement: biometry
     threshold_days: 10
     verified: true
 
   - id: biometry_22_27
     ga_from: { weeks: 22, days: 0 }
     ga_to:   { weeks: 27, days: 6 }
-    method: biometry
+    measurement: biometry
     threshold_days: 14
     verified: true
     discretionary_zone:
@@ -101,7 +110,7 @@ bands:
   - id: biometry_28_plus
     ga_from: { weeks: 28, days: 0 }
     ga_to:   null                # open-ended
-    method: biometry
+    measurement: biometry
     threshold_days: 21
     verified: true
     caveat: third_trimester

@@ -20,6 +20,7 @@ source:
 
   # THE KEY DISTINCTION IN THIS DATASET
   type: reference                # NOT prescriptive - see below
+  access: table                  # tabulated values; no published equation
   type_note: >
     WHO deliberately built a reference rather than a prescriptive standard.
     Pregnancies with maternal, fetal and neonatal conditions were RETAINED in
@@ -84,6 +85,13 @@ interpolation:
     distribution is deliberately asymmetric, linear interpolation between
     centiles is a worse approximation here than for a log-normal standard.
     State the method in output.
+
+# --------------------------------------------------------------- known_issues
+known_issues: []
+known_issues_note: >
+  No defects found. All internal and cross-source checks passed; see
+  `validation:` below. The published corrections are tracked separately under
+  `corrections:` because they are the publisher's, not ours.
 
 # --------------------------------------------------------------- corrections
 corrections:

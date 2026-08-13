@@ -12,7 +12,7 @@ source:
   citation: "Buck Louis et al. 2015, Am J Obstet Gynecol 213:449.e1-41"
   pmc: PMC4584427
   type: prescriptive
-  method: table                     # no published equation; tabulated values only
+  access: table                     # no published equation; tabulated values only
   cohort_n: 1737                    # fetuses included in the standard, of 2334 enrolled
   cohort_sites: 12                  # US clinical sites, Jul 2009 - Jan 2013
   eligibility: >

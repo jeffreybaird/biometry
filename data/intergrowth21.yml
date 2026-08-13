@@ -14,7 +14,31 @@ source:
   license: "CC-BY"
   derived_from: "INTERGROWTH-21st FGLS (n=4231 for centiles); formula fitted on FGLS+FS (n=2404)"
   type: prescriptive          # describes optimal growth, not observed population
-  stratification: none        # no sex, ethnicity, or country stratification by design
+  access: equation            # closed-form LMS; no lookup table needed
+  stratification_note: no sex, ethnicity or country stratification by design
+
+paired_formula: intergrowth
+paired_formula_note: >
+  Self-referential. INTERGROWTH published its own EFW formula and built its
+  centiles from it. The formula is the `efw:` block below, not a Hadlock
+  model. This chart cannot be read from a Hadlock-derived weight.
+
+stratification:
+  field: null
+  required: false
+  values: []
+  note: "None by design; the authors argue against population-specific standards."
+
+centiles:
+  published: [3, 10, 50, 90, 97]
+  computable: any
+  computable_note: >
+    The LMS parameter equations make any centile computable in closed form.
+    Table S1 prints the five above.
+
+interpolation:
+  between_weeks: not_applicable
+  between_centiles: not_applicable
 
 valid_ga_weeks: [22, 40]
 ga_units: exact_weeks         # decimal weeks. 30+3 => 30 + 3/7 = 30.428571
@@ -25,6 +49,11 @@ ga_units: exact_weeks         # decimal weeks. 30+3 => 30 + 3/7 = 30.428571
 # Femur length is deliberately absent: it was tested and not retained, and the
 # authors note including it would likely increase prediction error.
 efw:
+  id: intergrowth
+  verified: true
+  verified_by: >
+    Worked example in the paper reproduces exactly (log 7.312292, EFW 1499 g),
+    and Table S1 at 33 weeks matches to the gram.
   requires: [ac, hc]
   equation: |
     log(EFW) = 5.084820
