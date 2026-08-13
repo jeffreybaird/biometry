@@ -10,7 +10,12 @@ module Biometry
   # The member is `formula`, never `method`: `Data.define(:method)` generates a
   # reader that overrides `Object#method`, which breaks introspection and
   # anything in RSpec or a debugger that reaches for it.
-  Estimate = Data.define(:value, :unit, :formula, :inputs, :source) do
+  #
+  # `uncertainty` is nil when the standard publishes nothing convertible to
+  # one. INTERGROWTH is the live case: it reports a mean absolute prediction
+  # error, which is not a standard deviation, and relabelling it as one would
+  # be inventing a figure the paper never gave.
+  Estimate = Data.define(:value, :unit, :formula, :inputs, :source, :uncertainty) do
     def to_s = "#{value} #{unit} (#{formula})"
   end
 end

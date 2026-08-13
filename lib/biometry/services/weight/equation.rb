@@ -4,10 +4,10 @@ module Biometry
   module Services
     module Weight
       # A Hadlock EFW regression, parsed from the `equation:` string in
-      # data/hadlock.yml.
+      # data/hadlock_1985.yml.
       #
       # It is parsed rather than hand-transcribed because those strings are the
-      # only place the coefficients exist — hadlock.yml publishes no
+      # only place the coefficients exist — hadlock_1985.yml publishes no
       # `coefficients:` block — and retyping one into Ruby would be supplying a
       # clinical constant from outside data/.
       #

@@ -23,6 +23,7 @@ module Biometry
 
         def initialize(manifest:, formula:)
           @formulas = manifest[:efw_formulas]
+          @citation = manifest.dig(:source, :citation)
           @formula = formula
         end
 
@@ -38,7 +39,7 @@ module Biometry
 
         private
 
-        attr_reader :formulas, :formula
+        attr_reader :formulas, :formula, :citation
 
         def available = formulas.keys
 
@@ -52,7 +53,8 @@ module Biometry
 
         def estimate(scan, row, required)
           Estimate.new(value: grams(scan, row, required), unit: 'g', formula: formula,
-                       inputs: required, source: provenance)
+                       inputs: required, source: provenance,
+                       uncertainty: Uncertainty.pooled(row[:sd_pct]))
         end
 
         def grams(scan, row, required)
@@ -60,11 +62,8 @@ module Biometry
           10**Equation.parse(row[:equation]).evaluate(centimetres)
         end
 
-        # data/hadlock.yml carries its citations in YAML comments only, with no
-        # machine-readable `source:` block. Left nil rather than supplied from
-        # outside data/.
         def provenance
-          Provenance.new(standard: STANDARD, citation: nil, formula: formula,
+          Provenance.new(standard: STANDARD, citation: citation, formula: formula,
                          type: nil, stratum: nil)
         end
       end

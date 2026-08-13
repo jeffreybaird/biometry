@@ -11,10 +11,10 @@ module Biometry
   # nothing under services/ or models/ may call it.
   #
   # Returns plain Hashes and Arrays rather than typed manifests. The four
-  # manifests do not share a shape — hadlock.yml nests its range and paired
-  # formula under `hadlock_1991`, intergrowth21.yml states no paired formula
-  # at all — so a common type here would be a guess. Each adapter reads the
-  # keys it needs.
+  # chart manifests now share a schema, but hadlock_1985.yml publishes
+  # formulas rather than a chart and acog_redating.yml is neither, so a common
+  # type here would still be a guess. Each adapter reads the keys it needs;
+  # the fixture harness is what holds the chart schema to its shape.
   module ReferenceData
     # data/who.yml writes correction dates unquoted, which is legal YAML and
     # loads as a Date. safe_load rejects it unless Date is permitted, and

@@ -12,9 +12,9 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
   subject(:result) { service.call(scan) }
 
   let(:manifest) do
-    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml').first
+    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock_1985.yml').first
   end
-  let(:service) { described_class.new(manifest: manifest, formula: :hc_ac_fl) }
+  let(:service) { described_class.new(manifest: manifest, formula: :hadlock_hc_ac_fl) }
   let(:estimate) { result.value! }
 
   # Millimetres, because that is what HL7 OBX-5 carries.
@@ -39,16 +39,27 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
     end
 
     it 'names the formula that produced the value' do
-      expect(estimate.formula).to eq(:hc_ac_fl)
+      expect(estimate.formula).to eq(:hadlock_hc_ac_fl)
     end
 
     it 'lists only the measurements the formula actually used' do
-      expect(estimate.inputs).to eq(manifest[:efw_formulas][:hc_ac_fl][:requires].map(&:to_sym))
+      expect(estimate.inputs).to eq(manifest[:efw_formulas][:hadlock_hc_ac_fl][:requires].map(&:to_sym))
+    end
+
+    # Table I's per-stratum figures are not transcribed (see the manifest's
+    # accuracy_strata_not_transcribed known_issue), so the pooled SD is all
+    # there is and the estimate says which it is rather than leaving a reader
+    # to assume the tails are covered.
+    it 'carries the pooled SD the manifest row publishes' do
+      expect(estimate.uncertainty)
+        .to eq(Biometry::Uncertainty.new(
+                 sd_pct: manifest[:efw_formulas][:hadlock_hc_ac_fl][:sd_pct], basis: :pooled
+               ))
     end
 
     it 'evaluates the manifest equation over centimetres, not millimetres' do
       log10 = Biometry::Services::Weight::Equation
-              .parse(manifest[:efw_formulas][:hc_ac_fl][:equation])
+              .parse(manifest[:efw_formulas][:hadlock_hc_ac_fl][:equation])
               .evaluate(hc: scan.cm(:hc), ac: scan.cm(:ac), fl: scan.cm(:fl))
       expect(estimate.value).to be_within(1).of(10**log10)
     end
@@ -60,17 +71,15 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
     end
 
     it 'names the formula' do
-      expect(estimate.source.formula).to eq(:hc_ac_fl)
+      expect(estimate.source.formula).to eq(:hadlock_hc_ac_fl)
     end
 
     it 'claims no stratum, because the 1985 models are unstratified' do
       expect(estimate.source).not_to be_stratified
     end
 
-    context 'when the manifest publishes no machine-readable citation' do
-      it 'leaves the citation unset rather than supplying one' do
-        expect(estimate.source.citation).to be_nil
-      end
+    it 'carries the citation the manifest publishes' do
+      expect(estimate.source.citation).to eq(manifest[:source][:citation])
     end
   end
 
@@ -79,7 +88,7 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
   describe 'the formulas it offers' do
     let(:service) { described_class.new(manifest: manifest, formula: formula) }
 
-    rows, = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml')
+    rows, = Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock_1985.yml')
 
     rows[:efw_formulas].each_key do |id|
       context "when the requested formula is #{id}" do
@@ -113,7 +122,7 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
   # An unverified formula was pruned by the loader, so it reaches this service
   # as an absence and is indistinguishable from a formula that never existed.
   context 'when the requested formula is not in the manifest it was handed' do
-    let(:service) { described_class.new(manifest: manifest, formula: :bpd_hc_ac_fl) }
+    let(:service) { described_class.new(manifest: manifest, formula: :hadlock_ac_hc) }
 
     it 'fails rather than reaching for a formula it does not have' do
       expect(result).to be_failure
@@ -122,7 +131,7 @@ RSpec.describe Biometry::Services::Weight::Hadlock do
     it 'names what was requested and what is available' do
       expect(result.failure).to eq(
         [:unsupported_standard,
-         { requested: :bpd_hc_ac_fl, available: manifest[:efw_formulas].keys }]
+         { requested: :hadlock_ac_hc, available: manifest[:efw_formulas].keys }]
       )
     end
   end

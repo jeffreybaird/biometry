@@ -5,10 +5,10 @@ module Fixtures
   # given; the process exit status is the machine-readable part.
   class Report
     EQUATION_FIXTURES = {
-      'hadlock.yml' => [
-        '1991 median equation at selected weeks',
-        '1991 centiles at 32 weeks',
-        '1991 centiles at 40 weeks'
+      'hadlock_1991.yml' => [
+        'median equation at selected weeks',
+        'centiles at 32 weeks',
+        'centiles at 40 weeks'
       ],
       'intergrowth21.yml' => [
         'worked example, LMS parameters at 30+0',

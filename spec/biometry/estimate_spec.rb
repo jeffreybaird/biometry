@@ -3,7 +3,8 @@
 RSpec.describe Biometry::Estimate do
   subject(:estimate) do
     described_class.new(value: 1600, unit: 'g', formula: 'hadlock_bpd_hc_ac_fl',
-                        inputs: %i[bpd hc ac fl], source: provenance)
+                        inputs: %i[bpd hc ac fl], source: provenance,
+                        uncertainty: Biometry::Uncertainty.pooled(7.4))
   end
 
   let(:provenance) do
@@ -24,6 +25,16 @@ RSpec.describe Biometry::Estimate do
 
   it 'carries the provenance that attributes the value' do
     expect(estimate.source).to eq(provenance)
+  end
+
+  it 'carries how wrong the value might be' do
+    expect(estimate.uncertainty).to eq(Biometry::Uncertainty.pooled(7.4))
+  end
+
+  context 'when the standard publishes nothing convertible to an SD' do
+    it 'leaves uncertainty unset rather than substituting a related figure' do
+      expect(estimate.with(uncertainty: nil).uncertainty).to be_nil
+    end
   end
 
   describe '#formula' do

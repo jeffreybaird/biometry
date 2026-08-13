@@ -42,9 +42,13 @@ module Biometry
           Failure([:insufficient_data, { required: required, given: scan.kinds }])
         end
 
+        # `uncertainty` is nil deliberately. The manifest's `accuracy:` block
+        # publishes a mean absolute prediction error of 7.6%, which is not a
+        # standard deviation; reporting it as one would attribute a figure to
+        # the paper that the paper never gave.
         def estimate(scan)
           Estimate.new(value: grams(scan), unit: 'g', formula: FORMULA,
-                       inputs: required, source: provenance)
+                       inputs: required, source: provenance, uncertainty: nil)
         end
 
         def grams(scan) = Math.exp(log_efw(scan.cm(:ac), scan.cm(:hc)))

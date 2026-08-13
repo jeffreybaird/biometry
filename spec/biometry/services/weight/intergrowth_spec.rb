@@ -41,6 +41,13 @@ RSpec.describe Biometry::Services::Weight::Intergrowth do
       expect(estimate.formula).to eq(:intergrowth)
     end
 
+    # The paper publishes a mean absolute prediction error of 7.6%, which is
+    # not a standard deviation. Reporting it as one would relabel a different
+    # quantity, so nothing is reported until an SD is transcribed.
+    it 'carries no uncertainty, because the standard publishes no SD' do
+      expect(estimate.uncertainty).to be_nil
+    end
+
     it 'lists the measurements used, with no femur term' do
       expect(estimate.inputs).to eq(manifest[:efw][:requires].map(&:to_sym))
     end

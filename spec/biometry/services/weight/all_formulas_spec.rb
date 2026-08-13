@@ -12,7 +12,7 @@ RSpec.describe Biometry::Services::Weight::AllFormulas do
   subject(:results) { service.call(scan).value! }
 
   let(:hadlock) do
-    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml').first
+    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock_1985.yml').first
   end
   let(:intergrowth) do
     Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'intergrowth21.yml').first
@@ -31,12 +31,14 @@ RSpec.describe Biometry::Services::Weight::AllFormulas do
       expect(results.keys).to match_array(offered)
     end
 
-    it 'offers two formulas against the data as it stands' do
-      expect(results.keys).to match_array(%i[hc_ac_fl intergrowth])
+    it 'offers five formulas against the data as it stands' do
+      expect(results.keys).to match_array(
+        %i[hadlock_ac_fl hadlock_bpd_ac_fl hadlock_hc_ac_fl hadlock_bpd_hc_ac_fl intergrowth]
+      )
     end
 
-    it 'omits the Hadlock row the loader pruned as unverified' do
-      expect(results.keys).not_to include(:bpd_hc_ac_fl)
+    it 'offers every Hadlock formula the manifest carries, not just the paired ones' do
+      expect(results.keys).to include(*hadlock[:efw_formulas].keys)
     end
 
     it 'produces an estimate from every formula it offers' do
@@ -57,6 +59,16 @@ RSpec.describe Biometry::Services::Weight::AllFormulas do
       expect(results.values.map { |result| result.value!.unit }).to all(eq('g'))
     end
 
+    it 'carries pooled uncertainty on every Hadlock estimate' do
+      hadlock_results = results.values_at(*hadlock[:efw_formulas].keys)
+      expect(hadlock_results.map { |result| result.value!.uncertainty.basis })
+        .to all(eq(:pooled))
+    end
+
+    it 'leaves INTERGROWTH without uncertainty, since it publishes no SD' do
+      expect(results[:intergrowth].value!.uncertainty).to be_nil
+    end
+
     it 'reports numbers and sources, never a classification' do
       rendered = results.values.map { |result| result.value!.to_s }.join(' ')
       expect(rendered).not_to match(/sga|iugr|macrosom|restrict|abnormal|normal/i)
@@ -71,6 +83,11 @@ RSpec.describe Biometry::Services::Weight::AllFormulas do
       expect(results.keys).to match_array(offered)
     end
 
+    it 'produces estimates from the formulas that read no head circumference' do
+      supported = results.values_at(:hadlock_ac_fl, :hadlock_bpd_ac_fl)
+      expect(supported.map(&:success?)).to all(be(true))
+    end
+
     it 'refuses INTERGROWTH, naming what was required and what was given' do
       expect(results[:intergrowth].failure).to eq(
         [:insufficient_data, { required: %i[ac hc], given: %i[bpd ac fl] }]
@@ -78,7 +95,7 @@ RSpec.describe Biometry::Services::Weight::AllFormulas do
     end
 
     it 'refuses the head-based Hadlock model, naming what was missing' do
-      expect(results[:hc_ac_fl].failure).to eq(
+      expect(results[:hadlock_hc_ac_fl].failure).to eq(
         [:insufficient_data, { required: %i[hc ac fl], given: %i[bpd ac fl] }]
       )
     end

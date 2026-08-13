@@ -24,7 +24,7 @@ RSpec.describe Biometry::ReferenceData do
 
   describe '.load_manifest' do
     it 'loads every manifest committed under data/' do
-      names = %w[hadlock intergrowth21 nichd who acog_redating]
+      names = %w[hadlock_1985 hadlock_1991 intergrowth21 nichd who acog_redating]
       expect(names.map { |name| manifest(name) }).to all(be_a(Hash))
     end
 
@@ -192,15 +192,22 @@ RSpec.describe Biometry::ReferenceData do
         end
       end
 
-      context 'when the manifest is data/hadlock.yml as committed' do
-        subject(:loaded) { described_class.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml') }
-
-        it 'hands a service only the formula row that is confirmed' do
-          expect(loaded.first[:efw_formulas].keys).to eq(%i[hc_ac_fl])
+      # Nothing under data/ is unverified today, so pruning is a no-op against
+      # real data and every manifest reaches its service whole. The tmpdir
+      # cases above are what keeps the behaviour pinned for when that changes.
+      context 'when the manifests are the ones committed under data/' do
+        it 'drops nothing from any of them' do
+          dropped = Biometry::DATA_ROOT.glob('*.yml').map do |path|
+            described_class.load_manifest(path).last
+          end
+          expect(dropped).to all(be_empty)
         end
 
-        it 'reports the one unverified row in the repo' do
-          expect(loaded.last).to eq([%i[efw_formulas bpd_hc_ac_fl]])
+        it 'hands a service every formula hadlock_1985.yml carries' do
+          data, = described_class.load_manifest(Biometry::DATA_ROOT / 'hadlock_1985.yml')
+          expect(data[:efw_formulas].keys).to eq(
+            %i[hadlock_ac_fl hadlock_bpd_ac_fl hadlock_hc_ac_fl hadlock_bpd_hc_ac_fl]
+          )
         end
       end
     end

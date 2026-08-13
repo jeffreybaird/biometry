@@ -1,27 +1,19 @@
 # frozen_string_literal: true
 
 # Unit layer. The Hadlock coefficients are not published as a `coefficients:`
-# block anywhere in data/hadlock.yml — only as the `equation:` strings — so the
+# block anywhere in data/hadlock_1985.yml — only as the `equation:` strings — so the
 # only way to reach them without hand-transcribing a clinical constant into
 # Ruby is to parse them. The grammar is closed: a sum of signed terms, each a
 # numeric coefficient optionally multiplied by named variables.
 RSpec.describe Biometry::Services::Weight::Equation do
   let(:formulas) do
-    Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / 'hadlock.yml').first[:efw_formulas]
-  end
-
-  # bpd_hc_ac_fl is unverified, so load_manifest prunes it and no service will
-  # ever see it. Its equation is still the only two-line one in the repo, and
-  # it is the row slice 4 is blocked on, so the parser has to keep handling
-  # that shape. Read past the loader deliberately, and only for the string's
-  # shape — no value transcribed from this row is asserted anywhere.
-  let(:unpruned) do
-    YAML.safe_load_file(Biometry::DATA_ROOT / 'hadlock.yml', symbolize_names: true)
+    Biometry::ReferenceData
+      .load_manifest(Biometry::DATA_ROOT / 'hadlock_1985.yml').first[:efw_formulas]
   end
 
   describe '.parse' do
     context 'when the equation is written on one line' do
-      subject(:equation) { described_class.parse(formulas[:hc_ac_fl][:equation]) }
+      subject(:equation) { described_class.parse(formulas[:hadlock_hc_ac_fl][:equation]) }
 
       it 'names the variables the equation reads, lowercased' do
         expect(equation.variables).to contain_exactly(:hc, :ac, :fl)
@@ -32,12 +24,12 @@ RSpec.describe Biometry::Services::Weight::Equation do
       end
     end
 
-    # `equation: >` in data/hadlock.yml does not fold this one to a single
+    # `equation: >` in data/hadlock_1985.yml does not fold this one to a single
     # line: the continuation is more-indented, so YAML keeps the newline. The
     # string arrives with an embedded "\n", run-on spaces and a trailing "\n".
     context 'when the equation spans two lines' do
       subject(:equation) do
-        described_class.parse(unpruned[:efw_formulas][:bpd_hc_ac_fl][:equation])
+        described_class.parse(formulas[:hadlock_bpd_hc_ac_fl][:equation])
       end
 
       it 'reads the terms on both sides of the line break' do
