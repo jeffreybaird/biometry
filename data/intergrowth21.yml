@@ -1,0 +1,124 @@
+# INTERGROWTH-21st estimated fetal weight standard
+#
+# Source: Stirnemann J, Villar J, Salomon LJ, et al. International estimated
+#   fetal weight standards of the INTERGROWTH-21st Project.
+#   Ultrasound Obstet Gynecol 2017; 49: 478-486. DOI: 10.1002/uog.17347
+#   Open access, CC-BY.
+#
+# Transcribed by hand from the paper. Do not derive, interpolate, or recall
+# any value in this file.
+
+source:
+  citation: "Stirnemann et al. 2017, Ultrasound Obstet Gynecol 49(4):478-486"
+  doi: "10.1002/uog.17347"
+  license: "CC-BY"
+  derived_from: "INTERGROWTH-21st FGLS (n=4231 for centiles); formula fitted on FGLS+FS (n=2404)"
+  type: prescriptive          # describes optimal growth, not observed population
+  stratification: none        # no sex, ethnicity, or country stratification by design
+
+valid_ga_weeks: [22, 40]
+ga_units: exact_weeks         # decimal weeks. 30+3 => 30 + 3/7 = 30.428571
+                              # NB: published Table S1 is per COMPLETED week
+
+# ---------------------------------------------------------------- formula ---
+# EFW in grams; AC and HC in CENTIMETRES; log is natural log.
+# Femur length is deliberately absent: it was tested and not retained, and the
+# authors note including it would likely increase prediction error.
+efw:
+  requires: [ac, hc]
+  equation: |
+    log(EFW) = 5.084820
+             - 54.06633 * (AC/100)^3
+             - 95.80076 * (AC/100)^3 * log(AC/100)
+             + 3.136370 * (HC/100)
+  coefficients:
+    intercept:    5.084820
+    ac_cubed:   -54.06633
+    ac_cubed_log: -95.80076
+    hc:           3.136370
+
+# ------------------------------------------------------------ LMS centiles ---
+# Table 2. GA in exact weeks. These make a lookup table unnecessary: any
+# centile or Z-score is computable in closed form.
+lms:
+  lambda: |
+    L(GA) = -4.257629 - 2162.234 * GA^-2 + 0.0002301829 * GA^3
+  mu: |
+    M(GA) = 4.956737 + 0.0005019687 * GA^3 - 0.0001227065 * GA^3 * log(GA)
+  sigma: |
+    S(GA) = 1e-4 * (-6.997171 + 0.057559 * GA^3 - 0.01493946 * GA^3 * log(GA))
+
+  # Y = log(EFW). NOTE: the published table's two branches are frequently
+  # OCR'd identically; the second is lambda NOT equal to zero.
+  z_score: |
+    Y = log(EFW)
+    if L == 0:  Z = log(Y / M) / S
+    else:       Z = ((Y / M)^L - 1) / (S * L)
+
+  centile: |
+    Za = inverse_normal_cdf(alpha)
+    if L == 0:  log(C) = M * exp(S * Za)
+    else:       log(C) = M * (Za * S * L + 1)^(1 / L)
+    C = exp(log(C))
+
+# ------------------------------------------------------------- validation ---
+# Reproduced from the paper and confirmed by independent implementation.
+# Use these as spec fixtures.
+fixtures:
+  - name: "worked example, EFW"
+    inputs: { ac_cm: 26, hc_cm: 29 }
+    expect: { log_efw: 7.312292, efw_g: 1499 }
+    tolerance_g: 1
+
+  - name: "worked example, LMS parameters at 30+0"
+    inputs: { ga_weeks: 30 }
+    expect: { lambda: -0.4451729, mu: 7.241468, sigma: 0.017517 }
+
+  - name: "3rd centile at 30+0"
+    inputs: { ga_weeks: 30, alpha: 0.03 }
+    expect: { log_c: 7.008552, efw_g: 1106 }
+    tolerance_g: 1
+
+  - name: "Table S1 centiles at 33+0"
+    inputs: { ga_weeks: 33 }
+    expect: { c03_g: 1495, c50_g: 1954, c97_g: 2529 }
+    tolerance_g: 1
+
+# ------------------------------------------------------------- known_issues ---
+known_issues:
+  - id: worked_z_score_incorrect
+    detail: >
+      The paper states Z = 0.5617023 for EFW 1499 g at 30+0 weeks. Applying its
+      own Table 2 equations to the same lambda/mu/sigma gives 0.5544. Every
+      other number in the worked example reproduces exactly. Do not use
+      0.5617023 as a fixture.
+
+  - id: term_tail_divergence
+    detail: >
+      Computed centiles match the paper's quoted Table S1 values exactly at
+      33 weeks but diverge at 40 weeks: computed 3rd = 2574 g vs published
+      2554 g, computed 97th = 4102 g vs published 4121 g. The 50th matches at
+      3338 g. Verify against the actual Table S1 supplement before relying on
+      computed values above ~38 weeks.
+
+  - id: table2_ocr_branch_collapse
+    detail: >
+      In extracted text, both conditional branches of the Z-score and centile
+      rows of Table 2 render as "If lambda(GA) = 0". The second branch is
+      "not equal to zero". Read the rendered page, not the text layer.
+
+# --------------------------------------------------------------- reporting ---
+# Accuracy context to surface alongside any computed value.
+accuracy:
+  mean_absolute_prediction_error_pct: 7.6    # births within 1 day of scan
+  predicted_within_11_pct: 0.80
+  predicted_within_14_pct: 0.90
+  predicted_within_18_pct: 0.95
+  note: >
+    The authors explicitly discourage using EFW as a single summary value and
+    recommend reporting individual biometry (HC, AC, FL) alongside it.
+
+# ---------------------------------------------------------- not_in_this_pdf ---
+# Table S1 (EFW per completed week at 3rd, 10th, 50th, 90th, 97th centiles) is
+# supplementary material published online, not in the article PDF. The LMS
+# equations above make it unnecessary except as a cross-check.

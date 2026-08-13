@@ -1,0 +1,146 @@
+# NICHD Fetal Growth Studies - racial/ethnic EFW standards
+#
+# Source: Buck Louis GM, Grewal J, Albert PS, et al. "Racial/ethnic standards
+#   for fetal growth: the NICHD Fetal Growth Studies."
+#   Am J Obstet Gynecol 2015;213:449.e1-41. PMC4584427.
+#   doi:10.1016/j.ajog.2015.08.032
+#
+# Percentile values live in nichd_efw_percentiles.csv (Table 2, hand
+# transcribed, 4 groups x weeks 10-40 x 7 centiles).
+
+source:
+  citation: "Buck Louis et al. 2015, Am J Obstet Gynecol 213:449.e1-41"
+  pmc: PMC4584427
+  type: prescriptive
+  method: table                     # no published equation; tabulated values only
+  cohort_n: 1737                    # fetuses included in the standard, of 2334 enrolled
+  cohort_sites: 12                  # US clinical sites, Jul 2009 - Jan 2013
+  eligibility: >
+    Healthy low-risk singleton pregnancies. Age 18-40, pregravid BMI 19.0-29.9,
+    non-smoking, no assisted conception, no prior preterm/LBW/macrosomic
+    neonate, no chronic disease. Narrow by design: this is a standard of
+    optimal growth, not a description of the population.
+
+paired_formula: hadlock_hc_ac_fl
+paired_formula_note: >
+  The paper states EFW was computed from HC, AC and FL using a Hadlock
+  formula. This is the THREE-parameter model, NOT the four-parameter
+  BPD+HC+AC+FL model that the Hadlock 1991 chart itself was built on.
+  Do not compute an EFW with one formula and read a percentile off the
+  other chart.
+
+# ------------------------------------------------------------ valid range ---
+valid_ga_weeks: [15, 40]
+valid_ga_weeks_note: >
+  Table 2 tabulates weeks 10-40, but the curves were only estimated from the
+  15th to the 40th week, and the four randomized scan schedules place the
+  first visit at 16, 18, 20 or 22 weeks. Weeks 10-14 of the published table
+  are spline extrapolation with essentially no underlying biometry.
+  REJECT input below 15 weeks with :out_of_range rather than reading those
+  rows. The CSV retains them for fidelity to the source; the loader must
+  filter.
+
+# ------------------------------------------------------- stratification -----
+stratification:
+  field: self_identified_race_ethnicity
+  required: false
+  values: [white, black, hispanic, asian]
+  source_labels:
+    white: non-Hispanic white
+    black: non-Hispanic black
+    hispanic: Hispanic
+    asian: Asian or Pacific Islander
+  note: >
+    Self-reported "predominant" race/ethnicity, collected by interview. Treat
+    as an optional, nullable, user-supplied field. Never infer it, never
+    default it, and always name the chart used in the output. Differences
+    persisted after adjustment for maternal age, height, pregravid weight,
+    parity, employment, marital status, insurance, income, education and
+    infant sex.
+
+# -------------------------------------------------------------- centiles ----
+centiles:
+  tabulated: [3, 5, 10, 50, 90, 95, 97]
+  modelled: [5, 50, 95]
+  derived: [3, 10, 90, 97]
+  derivation: >
+    Only the 5th, 50th and 95th curves were estimated. Remaining centiles
+    follow from the assumed normal distribution of random effects and error
+    structure on the log scale. Note this includes the 10th, which is the
+    conventional SGA threshold.
+  model: >
+    Linear mixed models with cubic splines on log-transformed outcomes;
+    three knots at the 25th, 50th and 75th percentiles of gestational age.
+
+interpolation:
+  between_weeks: undefined_in_source
+  between_centiles: undefined_in_source
+  note: >
+    The source publishes integer weeks and seven centiles. Any value between
+    them is our choice, not the standard's. Pin the rule here, apply it
+    identically across all table-based standards, and state it in output.
+
+# ----------------------------------------------------------- known issues ---
+known_issues:
+  - id: table_extends_past_fitted_range
+    severity: high
+    detail: >
+      See valid_ga_weeks_note. Weeks 10-14 are extrapolated beyond both the
+      stated estimation range and the observed data.
+
+  - id: prose_table_1g_differences
+    severity: trivial
+    detail: >
+      Four values quoted in the Results differ from Table 2 by 1 g:
+      32w black p5 (text 1514 / table 1513), 32w asian p50 (1831 / 1830),
+      39w asian p50 (3270 / 3269), 39w black p5 (2622 / 2621). Rounding.
+      Fixture against the table, not the prose.
+
+  - id: abstract_vs_results_onset_week
+    severity: low
+    detail: >
+      The abstract reports EFW differing significantly above 20 weeks; the
+      Results and Figure 4 report significant divergence from 16 weeks. Use
+      16 weeks.
+
+  - id: bpd_caliper_convention
+    severity: medium
+    detail: >
+      NICHD measured BPD outer-to-inner. INTERGROWTH-21st measured it
+      outer-to-outer. This does not affect NICHD EFW (which uses HC, AC, FL),
+      but it makes the BPD percentile tables non-interchangeable between the
+      two standards. Relevant if BPD-based comparison is ever added.
+
+# -------------------------------------------------------------- fixtures ---
+fixtures:
+  - name: "32 weeks, all four groups (p5/p50/p95)"
+    expect:
+      white:    [1615, 1958, 2374]
+      hispanic: [1523, 1877, 2313]
+      black:    [1513, 1836, 2228]
+      asian:    [1508, 1830, 2222]
+
+  - name: "39 weeks, all four groups (p5/p50/p95)"
+    expect:
+      white:    [2790, 3505, 4402]
+      hispanic: [2633, 3336, 4226]
+      asian:    [2621, 3269, 4078]
+      black:    [2621, 3260, 4053]
+
+  - name: "table integrity"
+    assert:
+      - centiles increase left to right in every row
+      - every centile column increases monotonically with gestational age
+    status: verified
+
+# ------------------------------------------------------------- reporting ---
+clinical_context:
+  misclassification: >
+    The authors report that applying the white-derived standard to all groups
+    erroneously classifies as much as 15% of non-white fetuses as growth
+    restricted at the EFW 5th percentile. This is the published justification
+    for showing charts side by side rather than defaulting to one.
+  observed_spread: >
+    Median EFW across the four charts differs by ~3.8% at 20 weeks rising to
+    ~8% at term. Near the 10th centile this is routinely the difference
+    between an SGA workup and reassurance for identical biometry.

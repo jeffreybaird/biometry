@@ -1,0 +1,50 @@
+Activity,Screening,V1,C1,V2 [fn 1],Monthly contacts until delivery [fn 6],V3,V4,C2,Safety Visit - Event-driven,RSV-associated MA-RTI Visit - Event-driven [fn 7],Notes
+Timepoint,D (-28) - D1,D1 (24 0/7 - 36 0/7 weeks of gestation),D8,D31,n/a,Delivery,D43 Post-delivery,D181 Post-delivery,n/a,n/a,For monthly contacts: Section 8.4.2.1. Additional contacts and/or visits can be made between Visit-2 and the Delivery visit if deemed necessary.
+Informed consent/assent,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,"Section 10.1.3 Due to the recent safety signal, there will be no further enrollment and vaccination of maternal participants."
+Check inclusion/exclusion criteria,X,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Sections 5.1.1 and 5.1.2
+Assign maternal participant study number,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Register maternal participant in SBIR,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 6.3.1
+Assign infant participant study number,n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Record demographic data,X,,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Record lifestyle characteristics,X,X,X,X,,X,X,X,n/a,n/a,Section 5.3
+"Review & collect medical and vaccination history, including pre-existing medical conditions and/or obstetric complications",O,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 8.2.1.3
+Record outcome of fetal morphology ultrasound scan,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 8.2.1.3
+Record the estimated fetal weight by ultrasound or record presence of fetal growth restriction if diagnosed using other ultrasound parameters,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Record obstetric history from current pregnancy,X,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 8.2.1.3
+Record obstetric history from past pregnancies,O,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 8.2.1.3
+Record travel history to or living in Zika virus endemic countries/regions (During the current pregnancy only),X,X,X,X,n/a,X,n/a,n/a,n/a,n/a,
+General and obstetric examination,X,X,n/a,X,n/a,X,X,n/a,O,O,Section 8.2.1.4
+Body temperature before study interventions administration [fn2],n/a,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+"Review of safety lab data required for assessing eligibility criteria OR Blood sample (hematology / biochemistry, ~ 5.5 ml) if not performed as part of the routine care.",O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 10.2.1
+Review of safety lab data required for assessing eligibility criteria OR Urine sample (Dipstick) if not performed as part of the routine care,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Blood sample (immunogenicity ~ 10 ml),n/a,X,n/a,X,n/a,X,n/a,n/a,n/a,n/a,Sections 8.1.1 and 8.1.3
+Cord blood (~ 5 to 10 ml),n/a,n/a,n/a,n/a,n/a,X,n/a,n/a,n/a,n/a,Sections 8.1.1 and 8.1.3
+Nasal swab [fn7],n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,X,"Sections 8.1.1, 8.1.3, and 8.4.4 Nasal swab samples will no longer be collected."
+Placental tissue sample [fn8],n/a,n/a,n/a,n/a,n/a,X,n/a,n/a,n/a,,"Section 10.2.1 Samples will be collected at delivery from all participants, if feasible."
+"Check contraindications, warnings and precautions to study interventions administration",n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 8.2.1.5
+Check criteria for temporary delay for study interventions administration,n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 7.1
+"Allocate maternal study group, intervention number",n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Sections 6.3.2 and 6.3.3
+Allocate infant sub-cohorts for immunogenicity assessment [fn3],n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Administer Intervention (study vaccine / placebo),n/a,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Record administered intervention number,n/a,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Sections 6.1 and 6.2
+Observe for 30 minutes post-dose,n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Distribute maternal participant card,O,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 8.3.6
+Record Labor / delivery information,n/a,n/a,n/a,n/a,n/a,X,n/a,n/a,n/a,n/a,
+Record pregnancy / delivery outcomes (Day 1 post-study intervention to Day 42 post-delivery),n/a,O,O,n/a,O,X,O,n/a,n/a,n/a,Section 8.3.3. Must submit Expedited AE report for an adverse pregnancy outcome
+Train maternal participant/LAR on use of eDiary device,n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Section 10.3.8
+Distribute eDiary device to maternal participant / LAR.,n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Review eDiary entries,n/a,O,O,O,n/a,n/a,n/a,n/a,O fn4,O fn4,Section 8.3.1
+Return eDiary device,n/a,n/a,n/a,O,n/a,n/a,n/a,n/a,n/a,n/a,
+Concomitant medications / vaccinations.,n/a,X,X,X,X,X,X,X,X,X,Sections 6.8.1 and 6.8.3
+All solicited AEs (Day 1 post-study intervention to 7 days post-study intervention),n/a,O,O,,,,,,O,,"Sections 8.3.1, 10.3.4 and 10.3.8"
+All unsolicited AEs (Day 1 post-study intervention to 30 days post-study intervention),n/a,X,X,X,n/a,n/a,n/a,n/a,X,X,"Sections 8.3.1, 10.3.4 and 10.3.8"
+Record of worsening of pre-existing medical conditions and/or obstetric complications (Day 1 post-study intervention to 180 days post-delivery),n/a,X,X,X,X,X,X,X,X,X,Section 8.2.1.2
+Pregnancy-related AESIs (Day 1 post-study intervention to 42 days post-delivery),n/a,X,X,X,X,X,X,,X,X,"Sections 8.3.1, 8.3.3, 8.3.4 and 10.3.5. Must submit an Expedited AE report."
+"Suspected, probable and confirmed cases of COVID-19 infection (depending on the epidemiological COVID-19 situation) (Day 1 post-study intervention to 180 days post-delivery)",n/a,X,X,X,X,X,X,X,X,X,Sections 8.4.7
+MA-RTIs (Day 1 post-study intervention to 180 days post-delivery) [fn7],n/a,O fn5,O fn5,O fn5,O fn5,O fn5,O fn5,O fn5,n/a,X,"Sections 8.3.1, 8.3.3, 8.4 and 10.3.8 MA-RTIs for the maternal participants will no longer be performed."
+"SAEs, (S)AEs leading to study withdrawal, MAEs (Day 1 post-study intervention to 180 days post-delivery)",n/a,X,X,X,X,X,X,X,X,X,"Sections 7.2, 8.3.1 and 10.3.8"
+SAEs related to study participation (Screening to Day 1 pre-study intervention),X,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,Sections 8.3.1 and 10.3.8
+Subsequent pregnancies,n/a,n/a,n/a,n/a,n/a,n/a,X,X,X,X,
+Record interest in joining future extension study,n/a,n/a,n/a,n/a,n/a,n/a,,X,,,Section 6.6
+Screening conclusion,X,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,n/a,
+Study conclusion,n/a,n/a,n/a,n/a,n/a,n/a,n/a,X,n/a,n/a,Sections 4.4 and 10.1.9

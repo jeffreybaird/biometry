@@ -1,0 +1,173 @@
+# WHO Fetal Growth Charts - estimated fetal weight
+#
+# Source: Kiserud T, Piaggio G, Carroli G, et al. "The World Health
+#   Organization Fetal Growth Charts: A Multinational Longitudinal Study of
+#   Ultrasound Biometric Measurements and Estimated Fetal Weight."
+#   PLoS Med 2017;14(1):e1002220. doi:10.1371/journal.pmed.1002220
+#   Open access, CC-BY. PMC5261648.
+#
+# Percentile values in who_efw_percentiles.csv:
+#   Table 11 (combined), Table 14 (female), Table 15 (male).
+
+source:
+  citation: "Kiserud et al. 2017, PLoS Med 14(1):e1002220"
+  doi: "10.1371/journal.pmed.1002220"
+  license: "CC-BY"
+  cohort_n: 1362                 # contributed ultrasound data, of 1387 participating
+  measurement_sets: 7924         # analysed, from 8203 scrutinised
+  countries: [Argentina, Brazil, DR Congo, Denmark, Egypt, France, Germany,
+              India, Norway, Thailand]
+
+  # THE KEY DISTINCTION IN THIS DATASET
+  type: reference                # NOT prescriptive - see below
+  type_note: >
+    WHO deliberately built a reference rather than a prescriptive standard.
+    Pregnancies with maternal, fetal and neonatal conditions were RETAINED in
+    the analysis, on the principle that reference intervals should reflect as
+    closely as possible the population to which they will be applied. They
+    also explicitly declined to exclude neonates below the 10th birthweight
+    centile, arguing it would shift all the lowest percentiles upward toward
+    "supernormal". The authors verified that excluding those pregnancies left
+    the parameter estimates indistinguishable.
+    CONSEQUENCE: a WHO 10th centile does not mean the same thing as an
+    INTERGROWTH or NICHD 10th centile. Surface this in output.
+
+paired_formula: hadlock_hc_ac_fl
+paired_formula_note: >
+  "EFW was calculated by including HC, AC, and FL in Hadlock et al.'s third
+  formula." Same pairing as NICHD. Distinct from Hadlock 1991's own chart,
+  which uses the four-parameter BPD+HC+AC+FL model.
+
+valid_ga_weeks: [14, 40]
+ga_units: completed_weeks
+ga_note: >
+  LMP-based gestational age was used for analysis, with CRL at 8+0 to 12+6
+  required to confirm LMP within 7 days. The authors argue LMP is preferable
+  for a growth study because CRL dating translates size variation into age
+  variation.
+
+# ------------------------------------------------------------ stratification
+stratification:
+  field: fetal_sex
+  required: false
+  values: [combined, female, male]
+  note: >
+    Male fetuses are larger, by 3.5% in the lower quantiles and 4.5% in the
+    upper. Median difference at 37 weeks is 84 g (verified against our
+    transcription). Use the combined table when sex is unknown.
+
+centiles:
+  combined: [2.5, 5, 10, 25, 50, 75, 90, 95, 97.5]
+  sex_specific: [5, 10, 25, 50, 75, 90, 95]
+  note: >
+    The sex-specific tables omit 2.5 and 97.5. A request for those centiles
+    with a sex specified must either fall back to the combined table (and say
+    so) or return :unsupported_centile. Do not interpolate them.
+
+  model: quantile_regression
+  model_note: >
+    Every centile is fitted independently by quantile regression, with no
+    distributional assumption; the estimated quantiles were then smoothed by
+    polynomial functions of gestational age. Nothing here is derived from a
+    normal or log-normal assumption. The fitted distribution is asymmetric and
+    changes shape with gestation: the Bowley asymmetry coefficient runs from
+    -0.016 at 15 weeks to +0.111 at 40 weeks.
+    This is a THIRD dispersion model in the reference set. Hadlock 1991 is
+    median x constant SD; NICHD models three centiles and derives the rest
+    log-normally; WHO estimates each centile non-parametrically.
+
+interpolation:
+  between_weeks: undefined_in_source
+  between_centiles: undefined_in_source
+  note: >
+    Same rule as NICHD: our choice, not the standard's. Because WHO's
+    distribution is deliberately asymmetric, linear interpolation between
+    centiles is a worse approximation here than for a log-normal standard.
+    State the method in output.
+
+# --------------------------------------------------------------- corrections
+corrections:
+  summary: >
+    Three published corrections. NONE of them touch Tables 11, 14 or 15, the
+    EFW charts. The computational error was in the femur-length ratio charts.
+    If you only consume EFW, the original tables stand.
+  items:
+    - doi: "10.1371/journal.pmed.1002284"
+      date: 2017-03-24
+      scope: "Fig 1, Table 12 (FL/HC ratio), Table 13 (FL/BPD ratio)"
+      affects_efw: false
+    - doi: "10.1371/journal.pmed.1002301"
+      date: 2017-04-20
+      scope: "correction to the above correction"
+      affects_efw: false
+    - doi: "10.1371/journal.pmed.1003526"
+      date: 2021-01-07
+      scope: "Table 12 title and caption did not match its content"
+      affects_efw: false
+
+# ------------------------------------------------------------ measurement ---
+measurement_conventions:
+  bpd: outer-inner              # matches NICHD; INTERGROWTH uses outer-outer
+  hc: ellipse on outer perimeter of skull
+  ac: ellipse on outer borders of body outline
+  fl: full femoral shaft, distal epiphysis excluded
+  equipment: Voluson Expert E8, identical across all ten centres
+  note: >
+    Only relevant if biometric percentile comparison is added later. EFW here
+    uses HC/AC/FL, so the BPD convention does not affect weight.
+
+# -------------------------------------------------------------- validation --
+validation:
+  internal:
+    - centiles monotonic across every row: PASS
+    - every centile column monotonic in GA: PASS
+    - female median below male at every week: PASS
+    - 37w median sex gap = 84 g, matching the published text: PASS
+    - Table 16 WHO rows match Table 11 at p10 and p90 for 20/24/28/32/36 wk: PASS
+  cross_source:
+    note: >
+      Kiserud Table 16 quotes NICHD percentiles from Buck Louis. All 40 quoted
+      values (4 groups x p10/p90 x 20/24/28/32/36 wk) match our independent
+      transcription of Buck Louis Table 2 exactly. Two independent
+      transcriptions agreeing.
+
+fixtures:
+  - name: "combined EFW, p10 and p90"
+    expect:
+      20: { p10: 286, p90: 380 }
+      28: { p10: 1026, p90: 1368 }
+      36: { p10: 2352, p90: 3153 }
+  - name: "sex difference at 37 weeks (p50)"
+    expect: { female: 2917, male: 3001, difference_g: 84 }
+  - name: "combined EFW at 40 weeks"
+    expect: { p2_5: 2775, p50: 3617, p97_5: 4515 }
+
+# --------------------------------------------------------------- reporting --
+clinical_context:
+  country_variation: >
+    Country differences were significant at all centiles and were not fully
+    explained by maternal characteristics or fetal sex. At term the 5th
+    centile is 3,200 g for Norway against 2,700 g for Egypt and 2,800 g
+    globally; the 10th centile at term is 3,400 g for Norway and 2,700 g for
+    India. A 3,200 g fetus is below Norway's 10th centile and well above
+    India's.
+  authors_caveat: >
+    The authors recommend testing chart performance in any given setting, and
+    note that customisation to country, maternal characteristics and fetal sex
+    improves diagnostic performance. They explicitly decline the position that
+    one chart fits all populations.
+  covariate_effects:
+    fetal_sex: "male larger; 3.5% lower quantiles, 4.5% upper"
+    maternal_age: "+2-3% per additional 10 years, mainly lower tail"
+    maternal_height: "+1-2% per additional 10 cm, mainly lower tail"
+    maternal_weight: "+1.0-1.5% per additional 10 kg, mainly upper tail"
+    parity: "parous heavier by 1-3%, mainly lower tail"
+
+# ------------------------------------------------------------- machine data -
+upstream:
+  s1_file: >
+    S1 File is an XLSX containing all growth charts (BPD, HC, AC, FL, HL, EFW,
+    FL/HC, FL/BPD) in one workbook, published as supporting information. Pull
+    it and diff against who_efw_percentiles.csv to verify this transcription
+    rather than trusting the hand transcription alone.
+  raw_data: "available on request from WHO (hamillc@who.int)"

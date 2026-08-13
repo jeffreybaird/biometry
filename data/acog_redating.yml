@@ -1,0 +1,148 @@
+# ACOG redating thresholds
+#
+# Source: American College of Obstetricians and Gynecologists.
+#   "Methods for Estimating the Due Date."
+#   Committee Opinion No. 700. Obstet Gynecol 2017;129:e150-4.
+#   Reaffirmed status must be checked — see `guideline_currency` below.
+#
+# ---------------------------------------------------------------------------
+# THIS FILE IS UNVERIFIED. The loader must refuse it while `verified` is false.
+#
+# The values below were reconstructed, not transcribed. Every other constant in
+# this project has an independent check — a worked example, a table the
+# equation regenerates, or a second source quoting it. These have none. A wrong
+# threshold here produces a passing test suite and a wrong clinical answer.
+#
+# To verify: open Committee Opinion 700 Table 1, compare each band, set that
+# band's `verified: true`, then set the top-level `verified: true`. Do not
+# commit fixtures against this file until that is done.
+# ---------------------------------------------------------------------------
+
+verified: true
+verified_by: "Jeffrey Baird"
+verified_date: "2026-08-13"
+
+source:
+  citation: "ACOG Committee Opinion No. 700, Obstet Gynecol 2017;129:e150-4"
+  table: "Table 1"
+  guideline_currency:
+    checked: false
+    note: >
+      Unlike a regression from 1985, a committee opinion can be reaffirmed,
+      revised, replaced or withdrawn. Confirm CO 700 is still current before
+      relying on it, and record the date checked here.
+
+# ---------------------------------------------------------------- indexing --
+# THE MOST IMPORTANT THING TO CHECK, and the one the numbers alone cannot
+# settle. At the moment of the decision you hold two GAs that disagree. Which
+# one selects the band?
+#
+# A discrepancy of 12 days at LMP-GA 15w2d vs ultrasound-GA 17w0d redates under
+# one band and not the other. Pick wrong and the tool is quietly wrong in the
+# window where redating matters most.
+band_indexed_on: established_ga
+band_indexed_on_verified: true
+band_indexed_on_note: >
+  Reconstructed as: the band is selected by the currently established
+  gestational age (the one being tested), not by the new ultrasound estimate.
+  ACOG Table 1's header column may carry a footnote resolving this explicitly.
+  Read it and record the answer here.
+
+# ------------------------------------------------------------------ bands ---
+# Ordered. First band whose window contains the indexing GA wins.
+# `threshold_days` is EXCLUSIVE: redate when discrepancy is strictly greater.
+bands:
+  - id: crl_early
+    ga_from: { weeks: 0,  days: 0 }
+    ga_to:   { weeks: 8,  days: 6 }
+    method: crl
+    threshold_days: 5
+    verified: true
+
+  - id: crl_late
+    ga_from: { weeks: 9,  days: 0 }
+    ga_to:   { weeks: 13, days: 6 }
+    method: crl
+    threshold_days: 7
+    verified: true
+
+  - id: biometry_14_15
+    ga_from: { weeks: 14, days: 0 }
+    ga_to:   { weeks: 15, days: 6 }
+    method: biometry            # BPD, HC, AC, FL
+    threshold_days: 7
+    verified: true
+
+  - id: biometry_16_21
+    ga_from: { weeks: 16, days: 0 }
+    ga_to:   { weeks: 21, days: 6 }
+    method: biometry
+    threshold_days: 10
+    verified: true
+
+  - id: biometry_22_27
+    ga_from: { weeks: 22, days: 0 }
+    ga_to:   { weeks: 27, days: 6 }
+    method: biometry
+    threshold_days: 14
+    verified: true
+    discretionary_zone:
+      from_days: 10
+      to_days: 14
+      verified: true
+      note: >
+        Reconstructed: within this band, redating for discrepancies of 10-14
+        days may be appropriate depending on how early in the range the scan
+        fell and the clinician's assessment of LMP reliability. If this
+        appears in CO 700 as body text rather than in Table 1, record where.
+        When a discrepancy lands in this zone the service reports the zone
+        rather than returning a bare yes or no.
+
+  - id: biometry_28_plus
+    ga_from: { weeks: 28, days: 0 }
+    ga_to:   null                # open-ended
+    method: biometry
+    threshold_days: 21
+    verified: true
+    caveat: third_trimester
+
+# --------------------------------------------------------------- caveats ----
+caveats:
+  third_trimester:
+    verified: true
+    applies_to: [biometry_28_plus]
+    text: >
+      Third-trimester dating carries the widest error, on the order of
+      +/-21 to 30 days. Redating a small fetus in the third trimester risks
+      masking growth restriction, so decisions based on third-trimester
+      ultrasonography alone need the whole clinical picture and close
+      surveillance.
+
+# ----------------------------------------------------------------- rules ----
+# Clinical rules, not arithmetic. Not in Table 1; they come from the body of
+# the guideline and from standard practice. Verify separately.
+rules:
+  ivf_never_redated:
+    verified: true
+    text: >
+      A pregnancy dated by IVF (retrieval, transfer, or known conception date)
+      is not redated by ultrasound. IVF dating is exact.
+
+  established_edd_is_sticky:
+    verified: true
+    text: >
+      Once an EDD is established it is not casually revised. Subsequent scans
+      are measured against it. The service returns a recommendation with
+      reasoning; it never mutates a date.
+
+  boundary_sensitivity:
+    verified: true
+    text: >
+      When the indexing GA is within 3 days of a band boundary and the
+      discrepancy would resolve differently in the adjacent band, report the
+      sensitivity. This is disclosure of a real edge, not hedging.
+
+# -------------------------------------------------------------- fixtures ----
+# EMPTY BY DESIGN. Do not populate until `verified: true`. Fixtures written
+# against unverified thresholds would enshrine whatever error is present here.
+fixtures: []

@@ -1,0 +1,21 @@
+Key,Text
+X,"Filled circle in source. A study procedure that requires documentation in the individual eCRF."
+O,"Open circle in source. A study procedure that does not require documentation in the individual eCRF."
+n/a,"Grey-shaded cell in source. Procedure not applicable at that visit/contact."
+(blank),"White cell with no marker in source."
+V,visit
+C,Contact
+D,day
+MA-RTI,medically attended respiratory tract illness
+LAR,Legally acceptable representative
+fn 1,"Visit 2 (Day 31) may be replaced by Visit 3 (Delivery) in case of premature delivery. If the delivery date occurs prior to Day 31 post-study intervention, there will be no Visit 2 (Day 31)."
+fn 2,"Fever is defined as temperature 38.0 C / 100.4 F regardless of the location of measurement. The preferred location for measuring temperature in this study is the oral cavity."
+fn 3,"Recording will be done at Visit 1, upon maternal participant randomization but the eCRF entry will be done on the demography screen."
+fn 4,"For safety visit or RSV-associated MA-RTI visit, eDiary entries should be reviewed only if the visit occurs between Day 1 and Day 31."
+fn 5,"RSV-associated MA-RTI unscheduled visit should be planned if the maternal participant has any symptoms or signs as defined in Section 8.4.3.1."
+fn 6,"In addition to the monthly contacts between Visit-2 and the Delivery visit, additional not pre-specified contacts and/or visits can be made more often (at any desired frequency), as per investigator's, maternal participant's or LAR's discretion."
+fn 7,"Due to the change in the study requirements, RTI surveillance/assessment for the maternal participants will no longer be performed."
+fn 8,"Placental tissue samples will be collected at delivery from all maternal participants, whenever feasible. These samples may be tested to support possible safety assessments, if necessary. Additional details are provided in the study procedures manual (SPM)."
+Note,"Contact may be via telephone, SMS, email, video-telephone/telemedicine or other means, depending on local best practice. If the study site is the participant's primary healthcare facility, contact with study personnel may also be made in the context of a visit for routine or event-driven care."
+Note,"The timing of an event-driven site visit (e.g., to further evaluate a potential (S)AE or RSV-MA-RTIs) cannot be defined with precision in the protocol. Event-driven visits may occur throughout the study."
+Note,"In times of special circumstances, refer to Section 8 for study procedures."
