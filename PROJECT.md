@@ -413,7 +413,8 @@ would open `spec_helper.rb` and still refuse every `*_spec.rb`.
 ## Slice 1 — gestational age and EDD
 
 **Owns:** `lib/biometry/services/dating/`
-**Reads:** nothing from `data/`. Pure arithmetic.
+**Reads:** nothing from `data/` — but only because half this slice is deferred.
+See "Scope" below.
 
 Given any of the following, produce a GA at a reference date and an EDD:
 
@@ -437,6 +438,60 @@ no unit test you would think to write catches it.
 
 Write specs for GA arithmetic boundaries explicitly. "13w6d plus one day" is
 where off-by-one bugs live.
+
+### Pinned before spec-writer — decided 2026-08-13
+
+**Scope: LMP and transfer only. CRL and biometry are deferred.**
+
+The claim that this slice reads nothing from `data/` holds for two of its four
+inputs. LMP and conception/transfer are arithmetic. CRL and biometry dating
+each need a published regression, and `data/` has none — the only CRL mentions
+anywhere are ACOG's band labels and a line of WHO prose.
+
+That is not a transcription gap but a clinical choice: Robinson–Fleming 1975,
+Hadlock 1992 and INTERGROWTH (Papageorghiou 2014) give materially different
+GAs from the same CRL, and ACOG's redating bands assume one of them. Picking
+one is the owner's decision, not an implementer's.
+
+Until then, CRL and biometry are **offered and refused**, never silently
+absent: `Failure([:unsupported_standard, { requested:, available: }])`. A
+missing derivation must read as "this library cannot do that yet", not as
+"your inputs did not support it".
+
+**Conventions are not clinical constants.** Two numbers live in code:
+
+- 280 days from LMP to EDD
+- 14 days added to conception age to give menstrual age
+
+Both are definitional rather than measured. Gestational age *is* menstrual age
+by definition, and the 40-week due date *is* the definition of an EDD, not a
+regression fitted to a cohort. Neither is a value transcribed from a paper, so
+neither belongs in `data/`. Every number that came out of a study still does.
+
+**Cycle-length correction.** `EDD = LMP + 280 + (cycle_length - 28)`. Naegele
+assumes 28 days; a 35-day cycle moves the EDD a week later, and that correction
+is common enough in practice to be the default behaviour rather than an option.
+
+**The IVF convention.** GA at transfer = 14 days + the embryo's age at
+transfer, so a day-5 blastocyst is 2w5d on transfer day and a day-3 cleavage
+embryo is 2w3d. The embryo day is a required input, not a default — guessing it
+is a two-week error in either direction.
+
+**Return shape mirrors slice 3.** One service per derivation, plus an
+aggregate returning `Success(Hash{derivation => Result})`. The aggregate always
+succeeds; the per-derivation Results are the report. There is no winner: LMP
+and transfer genuinely disagree, and that disagreement is the same species as
+the four growth charts.
+
+**Guard precedence.** Same rule as the growth adapters, minus the steps this
+slice has no analogue for: availability (is this derivation implemented at
+all), then input validity, then range. Pin it with the same shared-example
+approach — the slice 4 defect was a guard reordered to satisfy a metrics cop,
+with nothing asserting the order.
+
+**The member is `:derivation`, never `:method`.** `Data.define(:method)`
+shadows `Object#method`; `Estimate` and `Percentile` both carry a regression
+test against reintroducing it.
 
 ---
 
@@ -710,7 +765,7 @@ scrape numbers out of prose.
 
 ```
 0. scaffolding + shared types + loader     done, committed
-1. gestational age                         ready
+1. gestational age                         in progress; CRL/biometry deferred
 2. redating                                ready; acog_redating.yml verified 2026-08-13
 3. EFW                                     done; all 5 formulas offered
 4. percentiles                             unblocked; fan-out candidate
