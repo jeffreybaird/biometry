@@ -238,8 +238,8 @@ module Biometry
   Measurement = Data.define(:kind, :mm)   # :bpd, :hc, :ac, :fl, :hl, :crl
   Scan        = Data.define(:date, :measurements)
 
-  Estimate = Data.define(:value, :unit, :method, :inputs, :source) do
-    def to_s = "#{value} #{unit} (#{method})"
+  Estimate = Data.define(:value, :unit, :formula, :inputs, :source) do
+    def to_s = "#{value} #{unit} (#{formula})"
   end
 end
 ```
@@ -255,18 +255,20 @@ Provenance = Data.define(:standard, :citation, :formula, :type, :stratum)
 race/ethnicity or WHO fetal sex actually used — never inferred, never
 defaulted, and printed in slice 5's table.
 
-**One hazard left standing.** `Estimate`'s `:method` member overrides
-`Data#method`, and RuboCop flags it (`Lint/DataDefineOverride`, disabled inline
-at the definition). It does not degrade gracefully: `estimate.method(:to_s)`
-raises `ArgumentError` for wrong arity rather than falling through to
-`Object#method`, so anything doing reflection on an `Estimate` — a debugger, a
-serialiser, a matcher — fails with an error that points nowhere near the cause.
-Use `Estimate.instance_method` instead.
+**The member is `:formula`, not `:method`.** The sketch above said `:method`;
+that was wrong. `Data.define(:method)` generates a reader that overrides
+`Object#method`, and it does not degrade gracefully — `estimate.method(:to_s)`
+raised `ArgumentError` for wrong arity rather than falling through, so anything
+doing reflection on an `Estimate` (a debugger, a serialiser, an RSpec matcher)
+failed with an error pointing nowhere near the cause. Renamed on 2026-08-13,
+before slice 3 could spread it further.
 
-It is kept because it is the contract written above. Renaming it to `:formula`
-would remove the hazard, and `spec/models/estimate_spec.rb` is the only spec
-that would have to change. After slice 3 puts it in every result, it is a wide
-change. Decide before slice 3.
+`spec/biometry/estimate_spec.rb` keeps a `#method` example as a regression test
+against reintroducing any member that shadows `Object#method`.
+
+Note `Provenance` also carries a `formula`, so `estimate.formula` and
+`estimate.source.formula` now hold the same value. That redundancy is real and
+undecided; slice 5 is the natural place to collapse it.
 
 ### 0c. Result tags
 
@@ -508,22 +510,39 @@ has parentheses, a cube and a natural log, and a lenient parser would turn it
 into a plausible wrong number. INTERGROWTH is built from its `coefficients:`
 block instead, with the functional form in code.
 
-### Three of the four Hadlock rows are withheld
+### The loader prunes; services have no verified check
 
-`hc_ac_fl` is the only one with confirmation outside this project's own
-transcription (LOINC 11746-5, INTERGROWTH 2021). The rest carry
-`verified: false` and are not offered.
+`hc_ac_fl` is the only Hadlock row with confirmation outside this project's own
+transcription (LOINC 11746-5, INTERGROWTH 2021). `ac_fl` and `bpd_ac_fl` were
+deleted on 2026-08-13 — nothing paired with them, and an unverifiable constant
+sitting in the file invites use. `bpd_hc_ac_fl` stays, marked
+`verified: false`, because the 1991 chart needs it.
 
-**`ReferenceData` does not enforce that.** `refuse_unverified` reads the
-top-level `verified` key only, so nested flags are inert until a service
-honours them. `Hadlock` is the enforcement point, returning
-`:unsupported_standard` with `available:` listing the verified ids. An
-unverified row is reported rather than raised on: the file is sound and one row
-within it is withheld, which a caller can act on.
+`ReferenceData.load_manifest` returns `[data, dropped]`. A file whose
+*top-level* `verified` is false still raises. An entry *within* a file that is
+marked unverified is pruned, so it never reaches a service:
 
-**Slice 4 inherits this.** Four adapters will each need to honour the same
-flags, which is the seam defect ARTIFACTS.md warns about. Pin a shared guard
-before forking, or accept four copies and have the reviewer check for it.
+```ruby
+data, dropped = ReferenceData.load_manifest(path)
+# dropped => [[:efw_formulas, :bpd_hc_ac_fl]]
+```
+
+That collapses "unverified" into "absent", which every adapter already handles
+via its missing-entry path. The rejected alternative was a guard inside each
+service — that leaves every future adapter with an obligation to remember,
+which is precisely the seam defect a four-adapter slice exists to produce.
+**Slice 4 therefore inherits nothing here.** Its adapters need no verified
+check.
+
+`dropped` exists so a caller can say what is unavailable and why; pruning
+silently would be worse than the guard was. `exe/` should print something like
+"1 formula unavailable pending verification" once a command loads a manifest —
+no command does yet, so the wiring lands with the first one. The fixture
+harness already reports it.
+
+Arrays are walked too: `acog_redating.yml`'s `bands:` is a list, and slice 2
+must not receive an unverified band any more than slice 3 may receive an
+unverified formula.
 
 ### The withdrawn fixture
 
@@ -534,17 +553,20 @@ formula in the file produces 2415 g from them. See `known_issues`
 HC 29 cm -> 1499 g — is now the only published anchor in this slice, and it
 reproduces within the manifest's 1 g tolerance.
 
-### Not built: error by stratum
+### Struck: error by stratum
 
-PROJECT.md previously called for reporting error by birth-weight band rather
-than pooled, on the grounds that the pooled 7.5% SD understates uncertainty in
-the tails, which is where this tool is aimed. That still holds as a goal and is
-still not implementable: `data/hadlock.yml`'s `accuracy:` block is a prose note
-quoting two figures, not the Table I breakdown. The table is not in `data/`.
+This section used to require reporting error by birth-weight band rather than
+pooled, because Hadlock's errors run about 4.6% low below 1500 g and 6.3% high
+above 4000 g and the tails are where this tool is aimed.
 
-Pooled `sd_pct` is structured and present, but neither `Estimate` nor
-`Provenance` has a member for uncertainty, so it currently reaches no caller.
-Both are open before slice 5 renders anything.
+**The requirement is withdrawn.** It was unsatisfiable twice over: the Table I
+breakdown is not in `data/` — `accuracy:` is a prose note quoting two of its
+figures — and `Estimate` has no member that can carry uncertainty to a caller
+at all, so there was nowhere to put the number even if the table existed.
+
+Reinstate it only as one piece of work covering both halves: transcribe Table I
+into `data/hadlock.yml`, and give `Estimate` an uncertainty member. Half of it
+is not worth building.
 
 ---
 
@@ -659,14 +681,17 @@ the Hadlock 1991 chart pairs with `bpd_hc_ac_fl`, which carries
 flag before that adapter is built. The INTERGROWTH, NICHD and WHO adapters are
 unaffected — they pair with `intergrowth` and `hc_ac_fl`, both offered.
 
-Four decisions to make before slice 4 forks, all recorded above rather than
-left to four adapters to answer four ways:
+Two decisions remain before slice 4 forks. The other two are settled: the
+`:method` rename is done, and per-row `verified` flags are the loader's problem
+rather than each adapter's.
 
-1. The interpolation rule, between weeks and between centiles.
-2. How adapters honour the per-row `verified` flags — shared guard or four
-   copies plus a review check.
-3. Where INTERGROWTH's paired formula comes from, given `intergrowth21.yml`
-   states none.
-4. Whether `Estimate`'s `:method` member gets renamed to `:formula`. Slice 3
-   put it in every result, so this is now wider than it was, but still small:
-   one member, one slice 0 spec, four slice 3 specs.
+1. **The interpolation rule**, between weeks and between centiles. Undefined in
+   every source, so it is our choice and must be identical across both
+   table-based adapters.
+2. **Where INTERGROWTH's paired formula comes from.** `intergrowth21.yml`
+   states no `paired_formula`, unlike the other three manifests, so slice 4's
+   `:formula_chart_mismatch` check has nothing to read. Adding
+   `paired_formula: intergrowth` to that manifest would resolve it — the
+   pairing is self-referential, since INTERGROWTH built its centiles from its
+   own EFW formula rather than a Hadlock model. `data/` is yours to edit;
+   nothing else should.
