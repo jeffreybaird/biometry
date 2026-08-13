@@ -173,6 +173,11 @@ RSpec.describe Biometry::Services::Growth::Hadlock1991 do
     end
   end
 
+  # Pairing, then range. This chart is unstratified, so it expresses the first
+  # two guards of the shared order and none of the stratum ones.
+  it_behaves_like 'a chart that answers its guards in order',
+                  { manifest: 'hadlock_1991.yml' }
+
   # p3 => be_within(x).of(3), and so on, so the expected centile comes from
   # the manifest's own key rather than being retyped alongside it.
   def centile_matchers(keys)

@@ -198,4 +198,9 @@ RSpec.describe Biometry::Services::Growth::Intergrowth do
       expect(call(1500, weeks(30), formula: :hadlock_bpd_hc_ac_fl)).to be_failure
     end
   end
+
+  # Pairing, then range. This chart is unstratified, so it expresses the first
+  # two guards of the shared order and none of the stratum ones.
+  it_behaves_like 'a chart that answers its guards in order',
+                  { manifest: 'intergrowth21.yml' }
 end

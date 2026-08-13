@@ -228,4 +228,10 @@ RSpec.describe Biometry::Services::Growth::Nichd do
         .to eq(:formula_chart_mismatch)
     end
   end
+
+  # Pairing, then range, then stratum — the same order all four charts answer
+  # in. The reasoning lives with the shared group.
+  it_behaves_like 'a chart that answers its guards in order',
+                  { manifest: 'nichd.yml', table: 'percentiles/nichd.csv',
+                    stratum_key: :stratum }
 end

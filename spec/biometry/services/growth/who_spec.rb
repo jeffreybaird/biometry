@@ -196,4 +196,9 @@ RSpec.describe Biometry::Services::Growth::Who do
       expect(call(1700, weeks(32), formula: :hadlock_bpd_hc_ac_fl)).to be_failure
     end
   end
+
+  # Pairing, then range, then stratum — here the stratum is the sex. Same
+  # order all four charts answer in; the reasoning lives with the shared group.
+  it_behaves_like 'a chart that answers its guards in order',
+                  { manifest: 'who.yml', table: 'percentiles/who.csv', stratum_key: :sex }
 end

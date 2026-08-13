@@ -102,6 +102,14 @@ RSpec.describe Biometry::Services::Growth::Who::Centiles do
          { standard: :who, ga_weeks: 13, valid_range: manifest[:valid_ga_weeks] }]
       )
     end
+
+    # This direction takes no Estimate, so it has no pairing guard and the
+    # shared order starts at the window: range, then stratum. A gestation WHO
+    # never published cannot be answered off any of its charts, so which chart
+    # the caller meant is a question that never arises.
+    it 'refuses the window rather than the sex it would have read it on' do
+      expect(call(50, weeks(13, 6), sex: :unknown).failure.first).to eq(:out_of_range)
+    end
   end
 
   # A sex WHO does not publish is a caller's mistake, not a bug. It gets a
@@ -118,6 +126,15 @@ RSpec.describe Biometry::Services::Growth::Who::Centiles do
         inputs: %i[hc ac fl], uncertainty: Biometry::Uncertainty.pooled(8.0),
         source: Biometry::Provenance.formula(standard: :hadlock, citation: 'x',
                                              formula: manifest[:paired_formula].to_sym)
+      )
+    end
+    # A weight this chart was never built to read: INTERGROWTH's own AC+HC
+    # model rather than the Hadlock one WHO's centiles came from.
+    let(:mismatched) do
+      Biometry::Estimate.new(
+        value: 1700, unit: 'g', formula: :intergrowth, inputs: %i[ac hc], uncertainty: nil,
+        source: Biometry::Provenance.formula(standard: :intergrowth21, citation: 'x',
+                                             formula: :intergrowth)
       )
     end
 
@@ -140,6 +157,17 @@ RSpec.describe Biometry::Services::Growth::Who::Centiles do
     it 'refuses it on the same terms as the percentile direction' do
       expect(percentiles.call(estimate: estimate, ga: weeks(32), sex: :unknown).failure)
         .to eq(call(50, weeks(32), sex: :unknown).failure)
+    end
+
+    # The example above builds its estimate from the manifest's own pairing so
+    # that the sex is the only thing wrong with the call. That isolation is
+    # achieved by construction and would otherwise go unasserted: the day the
+    # pairing stopped being answered first, it would keep passing and say
+    # nothing. This is the assertion that makes it a technique rather than an
+    # assumption.
+    it 'answers the pairing before the sex, so the estimate above isolates the sex' do
+      expect(percentiles.call(estimate: mismatched, ga: weeks(32), sex: :unknown).failure.first)
+        .to eq(:formula_chart_mismatch)
     end
   end
 end
