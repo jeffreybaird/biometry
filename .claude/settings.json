@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "TaskCompleted": [
+      { "hooks": [{ "type": "command", "command": "./scripts/gate.sh" }] }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "./scripts/protect-tests.sh" }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "teammateMode": "auto",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}

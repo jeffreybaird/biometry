@@ -1,0 +1,121 @@
+plugins:
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 3.3.6    # match .ruby-version
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - 'vendor/**/*'
+    - 'tmp/**/*'
+    - 'bin/**/*'            # binstubs, not yours
+
+# ---------------------------------------------------------------- Metrics ---
+# Small methods are the point, but a literal shouldn't eat the budget.
+
+Metrics/MethodLength:
+  Max: 10
+  CountAsOne: ['array', 'hash', 'heredoc', 'method_call']
+
+Metrics/AbcSize:
+  Max: 15
+
+Metrics/ClassLength:
+  CountAsOne: ['array', 'hash', 'heredoc']
+
+Metrics/ModuleLength:
+  Exclude:
+    - 'spec/**/*'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+
+Metrics/ParameterLists:
+  Max: 4
+  CountKeywordArgs: false   # injected collaborators arrive as kwargs
+
+# ----------------------------------------------------------- Immutability ---
+# Proxies for the functional core. RuboCop can't check purity; these catch
+# the cheapest ways to violate it.
+
+Style/FrozenStringLiteralComment:
+  Enabled: true
+  EnforcedStyle: always
+
+Style/MutableConstant:
+  Enabled: true
+
+Style/OptionalBooleanParameter:
+  Enabled: true
+
+# -------------------------------------------------------- Functional style ---
+
+Style/MultilineBlockChain:
+  Enabled: false            # transformation chains are the intended shape
+
+Style/SymbolProc:
+  Enabled: true
+
+Style/EachWithObject:
+  Enabled: true
+
+Metrics/BlockNesting:
+  Max: 2
+
+# ------------------------------------------------------------------ Naming ---
+# Biometric parameters are one- to three-letter terms of art in every source
+# this library transcribes. Spelling them out is worse, not better.
+
+Naming/MethodParameterName:
+  AllowedNames: ['n', 'to', 'at', 'id', 'io',
+                 'ga', 'ac', 'hc', 'fl', 'bpd', 'hl', 'crl', 'efw', 'wk']
+
+Naming/BlockParameterName:
+  AllowedNames: ['n', '_', 'ga', 'ac', 'hc', 'fl', 'bpd', 'hl', 'crl', 'efw', 'wk']
+
+# Centile keys (p2_5, p97_5) come straight from data/percentiles/*.csv, and
+# year-suffixed standards (hadlock_1991) from the manifests. data/ is
+# read-only, so the names it uses are not ours to normalise.
+Naming/VariableNumber:
+  AllowedPatterns:
+    - '\Ap\d+_\d+\z'
+    - '_\d{4}\z'
+
+# ------------------------------------------------------------------- RSpec ---
+
+RSpec/MultipleExpectations:
+  Max: 3                    # exit code, stdout, stderr
+
+RSpec/ExampleLength:
+  Max: 8
+  CountAsOne: ['array', 'hash', 'heredoc']
+
+RSpec/NestedGroups:
+  Max: 4                    # context blocks per state
+
+RSpec/MultipleMemoizedHelpers:
+  Max: 7
+
+RSpec/DescribeClass:
+  Exclude:
+    - 'spec/cli/**/*'       # end-to-end command specs describe behavior
+
+RSpec/SpecFilePathFormat:
+  Exclude:
+    - 'spec/cli/**/*'
+
+# ------------------------------------------------------------------- Noise ---
+
+Style/Documentation:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 100
+  Exclude:
+    - 'spec/**/*'
+
+Lint/ConstantDefinitionInBlock:
+  Exclude:
+    - 'spec/**/*'
