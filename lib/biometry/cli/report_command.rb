@@ -13,7 +13,7 @@ module Biometry
     # clinical decision is made here — every refusal in the output came from a
     # service.
     class ReportCommand
-      MANIFESTS = %i[hadlock_1985 hadlock_1991 intergrowth21 nichd who].freeze
+      MANIFESTS = %i[acog_redating hadlock_1985 hadlock_1991 intergrowth21 nichd who].freeze
       TABLES = %i[nichd who].freeze
 
       def initialize(stdout:, stderr:)
@@ -53,6 +53,17 @@ module Biometry
         [dating_for(options), rows_for(options)]
       end
 
+      # Absent unless all three flags arrived, which ReportOptions has already
+      # made an all-or-nothing choice.
+      def redating_for(options)
+        return nil unless options[:established_edd]
+
+        Services::Dating::Redating.new(manifest: manifests[:acog_redating]).call(
+          established_edd: options[:established_edd], established_by: options[:established_by],
+          proposed_edd: options[:scan_edd], reference_date: options[:at]
+        )
+      end
+
       def dating_for(options)
         Services::Dating::AllDerivations.new.call(
           reference_date: options[:at], lmp: options[:lmp], cycle_length: options[:cycle],
@@ -67,7 +78,8 @@ module Biometry
       end
 
       def render(dating, growth, options)
-        arguments = { dating: dating, ga: options[:ga], scan: scan_of(options), growth: growth }
+        arguments = { dating: dating, ga: options[:ga], scan: scan_of(options), growth: growth,
+                      redating: redating_for(options) }
         return Presentation::JsonReport.new.call(**arguments) if options[:json]
 
         Presentation::Report.new(tty: stdout.tty?).call(**arguments)

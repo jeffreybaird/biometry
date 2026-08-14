@@ -39,6 +39,15 @@ RSpec.describe 'the biometry report command' do
 
   def citation(name) = ComposedReport.manifest(name)[:source][:citation]
 
+  def squeezed(text) = text.gsub(/\s+/, ' ').strip
+
+  # The page with the quoted guideline text taken out of it. See the note on
+  # the classification example below.
+  def rows_and_values(text)
+    ComposedReport.quoted_caveats
+                  .reduce(squeezed(text)) { |page, quote| page.sub(squeezed(quote), '') }
+  end
+
   context 'when given a gestation and a full set of measurements' do
     it 'exits 0, prints the report on stdout and says nothing on stderr' do
       status, out, err = call(base)
@@ -63,10 +72,15 @@ RSpec.describe 'the biometry report command' do
       expect(out).to match(/CRL\s+unavailable/)
     end
 
+    # The prohibition is on classifying the pregnancy in front of you, in a
+    # value or in a row. A caveat quoted from a guideline, warning what
+    # redating risks, labels nobody and prints verbatim — so the quotation is
+    # taken out and everything else is held exactly as strictly as before.
+    # Slice 2's own acceptance spec is where the quoted case is asserted.
     it 'prints numbers and their sources, never a classification' do
       _, out, = call(base)
       expect(out).to include('prescriptive')
-      expect(out)
+      expect(rows_and_values(out))
         .not_to match(/\b(sga|iugr|macrosom\w*|restrict\w*|abnormal|normal|pre-?term|post-?term)\b/i)
     end
   end

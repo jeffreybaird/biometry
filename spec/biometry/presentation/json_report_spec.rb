@@ -18,8 +18,27 @@ RSpec.describe Biometry::Presentation::JsonReport do
   let(:ga) { ComposedReport.ga_of }
   let(:scan) { ComposedReport.scan_of }
   let(:growth) { ComposedReport.growth }
-  let(:json) do
-    described_class.new.call(dating: dating, ga: ga, scan: scan, growth: growth)
+  # Absent unless a redating was asked for, and passed only when it was: the
+  # argument is optional and its absence is the document as it stood before
+  # slice 2.
+  let(:redating) { nil }
+  let(:json) { redating ? render(redating: redating) : render }
+
+  def render(**arguments)
+    described_class.new.call(dating: dating, ga: ga, scan: scan, growth: growth, **arguments)
+  end
+
+  def squeezed(text) = text.gsub(/\s+/, ' ').strip
+
+  def classification
+    /\b(sga|iugr|macrosom\w*|restrict\w*|abnormal|normal|pre-?term|post-?term)\b/i
+  end
+
+  # The document with the quoted guideline text taken out of it. A caveat
+  # quoted from ACOG labels nobody and travels verbatim; every value this
+  # library produced is held to the rule exactly as strictly as before.
+  def values_only(text = json)
+    ComposedReport.quoted_caveats.reduce(text) { |page, quote| page.sub(squeezed(quote), '') }
   end
 
   # A missing entry reads as an empty one, so the failure names the field that
@@ -235,7 +254,130 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
   it 'reports numbers and their sources, never a classification' do
     expect(json).to include('prescriptive')
-    expect(json)
-      .not_to match(/\b(sga|iugr|macrosom\w*|restrict\w*|abnormal|normal|pre-?term|post-?term)\b/i)
+    expect(values_only).not_to match(classification)
+  end
+
+  # Slice 2. Optional, and structured rather than phrased: the table says
+  # "12 days against a threshold of 21"; a program branching on the outcome
+  # needs the three numbers apart.
+  describe 'the redating decision' do
+    def entry_for = document['redating']
+
+    def decision = redating.value!
+
+    def zoned = ComposedReport.band_with_zone
+
+    context 'when no redating was asked for' do
+      it 'carries no entry for one' do
+        expect(document).not_to have_key('redating')
+      end
+
+      it 'is otherwise the document it was before the entry existed' do
+        expect(render(redating: nil)).to eq(render)
+      end
+    end
+
+    context 'when a redating was asked for' do
+      let(:redating) { ComposedReport.redating(discrepancy: 12) }
+
+      it 'carries the recommendation as one of the three, not as a boolean' do
+        expect(entry_for['recommendation']).to eq(decision.recommendation.to_s)
+      end
+
+      it 'carries the discrepancy, the threshold and the band apart from each other' do
+        expect(entry_for.values_at('discrepancy_days', 'threshold_days', 'band'))
+          .to eq([12, decision.threshold_days, decision.band.to_s])
+      end
+
+      it 'carries both dates as ISO dates, revising neither' do
+        expect(entry_for.values_at('established_edd', 'proposed_edd'))
+          .to eq([decision.established_edd.iso8601, decision.proposed_edd.iso8601])
+      end
+
+      it 'carries the gestation the band was selected on' do
+        expect(entry_for['indexing_ga']).to eq('text' => decision.indexing_ga.to_s,
+                                               'days' => decision.indexing_ga.days)
+      end
+
+      it 'cites the guideline the decision was read from' do
+        expect(entry_for['citation']).to eq(decision.source.citation)
+      end
+
+      # Quoted source text. A consumer displaying it is displaying ACOG, which
+      # is why it may carry wording the values may not.
+      it 'carries the caveat by name and word for word' do
+        expect(entry_for['caveat'])
+          .to eq('id' => decision.caveat.id.to_s, 'text' => decision.caveat.text)
+      end
+
+      it 'keeps every value this library produced free of a classification' do
+        expect(values_only).not_to match(classification)
+      end
+    end
+
+    context 'when the discrepancy falls in the discretionary zone' do
+      let(:redating) do
+        ComposedReport.redating(ga_days: ComposedReport.inside_band(zoned),
+                                discrepancy: zoned[:discretionary_zone][:from_days] + 1)
+      end
+
+      it 'carries the zone as its two bounds rather than as prose' do
+        zone = zoned[:discretionary_zone]
+        expect(entry_for['zone'])
+          .to eq('from_days' => zone[:from_days], 'to_days' => zone[:to_days])
+      end
+
+      it 'carries the deferral itself as the recommendation' do
+        expect(entry_for['recommendation']).to eq('discretionary')
+      end
+    end
+
+    # Absent rather than null-with-a-story: a band and a threshold here would
+    # be readings a program could act on that played no part in the decision.
+    context 'when the pregnancy was dated by embryo transfer' do
+      let(:redating) { ComposedReport.redating(discrepancy: 12, established_by: :transfer) }
+
+      it 'names the rule that decided it' do
+        expect(entry_for['rule']).to eq('ivf_never_redated')
+      end
+
+      it 'carries no band, no threshold, no zone and no caveat' do
+        absent = %w[band threshold_days zone caveat]
+        expect(absent.reject { |key| entry_for.key?(key) }).to eq(absent)
+      end
+
+      it 'still carries the discrepancy it measured' do
+        expect(entry_for['discrepancy_days']).to eq(12)
+      end
+    end
+
+    context 'when the answer would differ in the neighbouring band' do
+      let(:redating) do
+        ComposedReport.redating(ga_days: ComposedReport.edge_days(zoned[:ga_from]),
+                                discrepancy: zoned[:discretionary_zone][:from_days] + 1)
+      end
+
+      it 'carries the neighbour, its answer and the distance to the edge' do
+        sensitivity = decision.boundary_sensitivity
+        expect(entry_for['boundary_sensitivity'])
+          .to eq('adjacent_band' => sensitivity.adjacent_band.to_s,
+                 'recommendation' => sensitivity.recommendation.to_s,
+                 'days_to_edge' => sensitivity.days_to_edge)
+      end
+    end
+
+    # Refusals travel, here as everywhere: an entry that vanished would read as
+    # a redating nobody asked for rather than one that could not be answered.
+    context 'when the request could not be read at all' do
+      let(:redating) { ComposedReport.redating(established_by: :martian) }
+
+      it 'carries the failure tag and its payload' do
+        expect(entry_for.dig('error', 'tag')).to eq('invalid_input')
+      end
+
+      it 'names the derivation it did not recognise' do
+        expect(entry_for.dig('error', 'details', 'established_by')).to eq('martian')
+      end
+    end
   end
 end

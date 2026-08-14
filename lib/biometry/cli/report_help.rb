@@ -51,6 +51,25 @@ module Biometry
                            Required alongside a transfer date, because
                            guessing it is a two-day error in either direction.
 
+        Redating
+          --established-edd DATE
+                           The due date already established for this
+                           pregnancy, ISO YYYY-MM-DD. Requires the other two
+                           redating flags alongside it: two of the three
+                           describe a comparison with nothing to compare
+                           against.
+          --established-by HOW
+                           How that established date was arrived at: lmp,
+                           transfer, crl or biometry. This is not a note on
+                           provenance -- a pregnancy dated by IVF, which is
+                           transfer here, is never redated by ultrasound, so
+                           this flag decides whether any threshold is
+                           consulted at all.
+          --scan-edd DATE  The due date this scan implies, ISO YYYY-MM-DD.
+                           It is compared against the established one; neither
+                           date is revised, and the answer is a recommendation
+                           with its reasoning.
+
         Charts
           --sex SEX        Fetal sex, selecting the WHO chart: combined, female
                            or male. Omitted, the combined table is read.

@@ -19,17 +19,23 @@ module Biometry
     class JsonReport
       NOTES = ['SD is pooled; per-stratum figures are not transcribed.'].freeze
 
-      def call(dating:, ga:, scan:, growth:)
-        JSON.generate(
-          gestational_age: { text: ga.to_s, days: ga.days },
-          measurements: scan.measurements.map { |m| measurement(m) },
-          dating: dating.map { |derivation, result| dated(derivation, result) },
-          growth: growth.map { |row| growth_row(row) },
-          sources: citations(growth), notes: NOTES
-        )
+      # `redating` is optional, and absent rather than null when nobody asked:
+      # a key holding null reads as a question that was asked and could not be
+      # answered.
+      def call(dating:, ga:, scan:, growth:, redating: nil)
+        document = sections(dating, ga, scan, growth)
+        document[:redating] = redated(redating) if redating
+        JSON.generate(document.merge(sources: citations(growth, redating), notes: NOTES))
       end
 
       private
+
+      def sections(dating, ga, scan, growth)
+        { gestational_age: { text: ga.to_s, days: ga.days },
+          measurements: scan.measurements.map { |m| measurement(m) },
+          dating: dating.map { |derivation, result| dated(derivation, result) },
+          growth: growth.map { |row| growth_row(row) } }
+      end
 
       def measurement(measurement)
         { kind: measurement.kind, mm: measurement.mm, cm: measurement.cm }
@@ -109,8 +115,45 @@ module Biometry
       # Same rule as the table: every standard with an entry is cited, whether
       # or not its reading succeeded. A document listing two sources for four
       # entries is the same defect there as here.
-      def citations(growth)
-        growth.flat_map { |row| [row[:citation], cited(row[:weight])] }.compact.uniq
+      def citations(growth, redating = nil)
+        rows = growth.flat_map { |row| [row[:citation], cited(row[:weight])] }
+        (rows + [redating && cited(redating)]).compact.uniq
+      end
+
+      # ------------------------------------------------------------- redating
+
+      def redated(redating)
+        return { error: error(redating.failure) } if redating.failure?
+
+        decision = redating.value!
+        decided(decision).merge(banded(decision)).compact
+      end
+
+      def decided(decision)
+        { recommendation: decision.recommendation, discrepancy_days: decision.discrepancy_days,
+          established_edd: decision.established_edd.iso8601,
+          proposed_edd: decision.proposed_edd.iso8601,
+          indexing_ga: { text: decision.indexing_ga.to_s, days: decision.indexing_ga.days },
+          rule: decision.rule, citation: decision.source.citation }
+      end
+
+      # Absent rather than null: a band and a threshold a program could act on
+      # played no part when a rule decided.
+      def banded(decision)
+        { band: decision.band, threshold_days: decision.threshold_days,
+          zone: zoned(decision.zone), caveat: quoted(decision.caveat),
+          boundary_sensitivity: bordering(decision.boundary_sensitivity) }
+      end
+
+      def zoned(zone) = zone && { from_days: zone.first, to_days: zone.last }
+
+      def quoted(caveat) = caveat && { id: caveat.id, text: caveat.text }
+
+      def bordering(sensitivity)
+        return nil unless sensitivity
+
+        { adjacent_band: sensitivity.adjacent_band, recommendation: sensitivity.recommendation,
+          days_to_edge: sensitivity.days_to_edge }
       end
 
       def cited(result) = result.success? ? result.value!.source.citation : nil

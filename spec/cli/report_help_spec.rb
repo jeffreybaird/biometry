@@ -20,8 +20,8 @@ RSpec.describe 'the biometry report help' do
   def officious = %w[--help --version].freeze
 
   biometric_flags = Biometry::CLI::ReportOptions::MEASUREMENTS.map { |kind| "--#{kind}" }
-  flags = %w[--ga --at --json --lmp --cycle --transfer --embryo-day --sex --stratum] +
-          biometric_flags
+  flags = %w[--ga --at --json --lmp --cycle --transfer --embryo-day --sex --stratum
+             --established-edd --established-by --scan-edd] + biometric_flags
 
   # The names the report already refuses to print. A help page that explains
   # the command may not introduce the vocabulary the output excludes.
@@ -182,6 +182,44 @@ RSpec.describe 'the biometry report help' do
 
     it 'says omitting --stratum prints all four charts' do
       expect(entry('--stratum')).to match(/\bfour\b/i).and match(/chart/i)
+    end
+  end
+
+  # Slice 2. The three that decide whether a due date moves, and the one place
+  # a reader learns that naming the derivation is what triggers the IVF rule.
+  describe 'the redating flags' do
+    def derivations
+      Biometry::Services::Dating::AllDerivations::OFFERED +
+        Biometry::Services::Dating::AllDerivations::DEFERRED
+    end
+
+    { '--established-edd' => /established/i, '--scan-edd' => /scan|ultrasound/i }
+      .each do |flag, meaning|
+      it "says which date #{flag} is" do
+        expect(entry(flag)).to match(meaning)
+      end
+
+      it "says #{flag} is written as an ISO date" do
+        expect(entry(flag)).to match(/iso|yyyy-mm-dd/i)
+      end
+    end
+
+    # A second hand-kept list is the half of a help page that rots, so the
+    # values are read from the derivations the library actually names.
+    it 'names every derivation --established-by accepts' do
+      missing = derivations.reject { |value| entry('--established-by').match?(/\b#{value}\b/i) }
+      expect(missing).to be_empty
+    end
+
+    # The flag looks like documentation of where a date came from. It is the
+    # switch that decides whether the pregnancy can be redated at all.
+    it 'says a pregnancy dated by IVF is never redated by ultrasound' do
+      expect(entry('--established-by')).to match(/ivf|transfer/i)
+      expect(entry('--established-by')).to match(/(never|not)[^\n]{0,40}redat/i)
+    end
+
+    it 'says the three go together' do
+      expect(entry('--established-edd')).to match(/together|all three|alongside|requires/i)
     end
   end
 

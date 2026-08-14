@@ -12,15 +12,21 @@
 # column *order* are the contract; the padding between them is alignment, and
 # alignment is a TTY decision.
 RSpec.describe Biometry::Presentation::Report do
-  subject(:report) { render }
+  # A redating is passed only when one was asked for, which is how the command
+  # calls it: the argument is optional and its absence is the default report.
+  subject(:report) { redating ? render(redating: redating) : render }
 
   let(:dating) { ComposedReport.dating }
   let(:ga) { ComposedReport.ga_of }
   let(:scan) { ComposedReport.scan_of }
   let(:growth) { ComposedReport.growth }
+  # Absent unless a redating was asked for. A report without the established
+  # date flags must read exactly as it did before slice 2 existed.
+  let(:redating) { nil }
 
-  def render(tty: false)
-    described_class.new(tty: tty).call(dating: dating, ga: ga, scan: scan, growth: growth)
+  def render(tty: false, **arguments)
+    described_class.new(tty: tty).call(dating: dating, ga: ga, scan: scan, growth: growth,
+                                       **arguments)
   end
 
   def plain(text) = text.gsub(/\e\[[0-9;]*m/, '')
@@ -45,6 +51,36 @@ RSpec.describe Biometry::Presentation::Report do
 
   # A missing row is a failure worth reading, not a NoMethodError on nil.
   def tidy(line, label) = line ? line.squeeze(' ').strip : "no row for #{label}"
+
+  # The names this library will not apply to the pregnancy in front of it.
+  def classification
+    /\b(sga|iugr|macrosom\w*|restrict\w*|abnormal|normal|pre-?term|post-?term)\b/i
+  end
+
+  def squeezed(text) = text.gsub(/\s+/, ' ').strip
+
+  # The page with the quoted guideline text taken out of it.
+  #
+  # The prohibition is on classifying this fetus — SGA, IUGR, macrosomia,
+  # restricted or normal as a verdict, in a value or in a row. A caveat quoted
+  # from ACOG, warning what redating risks, labels nobody, and it prints
+  # verbatim because a caveat this library paraphrased would be this library
+  # speaking. So the quotation is removed and everything else on the page is
+  # held to the rule exactly as strictly as before: a classification appearing
+  # in a row or a value still fails here, whether or not the caveat is present.
+  def rows_and_values(text = report)
+    ComposedReport.quoted_caveats
+                  .reduce(squeezed(plain(text))) { |page, quote| page.sub(squeezed(quote), '') }
+  end
+
+  # One section, the way the help page reads one flag's entry: the heading and
+  # the indented lines under it, up to the next heading.
+  def section(heading, text = report)
+    body = plain(text).lines.drop_while { |line| !line.start_with?(heading) }
+    return '' if body.empty?
+
+    [body.first, *body.drop(1).take_while { |line| !line.match?(/\A\S/) }].join
+  end
 
   it 'returns a string rather than writing one to a stream' do
     expect(report).to be_a(String).and(start_with('Dating'))
@@ -244,8 +280,157 @@ RSpec.describe Biometry::Presentation::Report do
   # would see one.
   it 'reports numbers and their sources, never a classification' do
     expect(report).to include('NICHD (white)', 'prescriptive')
-    expect(report)
-      .not_to match(/\b(sga|iugr|macrosom\w*|restrict\w*|abnormal|normal|pre-?term|post-?term)\b/i)
+    expect(rows_and_values).not_to match(classification)
+  end
+
+  # Slice 2. Optional: the section exists only when a redating was asked for,
+  # and its absence must leave the rest of the page exactly as it was.
+  describe 'the redating section' do
+    def redating_section(text = report) = section('Redating', text)
+
+    def decision = redating.value!
+
+    def band = ComposedReport.band_with_caveat
+
+    def zoned = ComposedReport.band_with_zone
+
+    context 'when no redating was asked for' do
+      it 'prints no section for it' do
+        expect(report).not_to include('Redating')
+      end
+
+      it 'renders exactly the report it rendered before the section existed' do
+        expect(render(redating: nil)).to eq(render)
+      end
+    end
+
+    context 'when a redating was asked for' do
+      let(:redating) { ComposedReport.redating(discrepancy: 12) }
+
+      it 'prints the section beside the dating it is about' do
+        expect(redating_section).to start_with('Redating')
+      end
+
+      it 'places it after the dating and before the growth table' do
+        offsets = %w[Dating Redating Growth].map { |heading| plain(report).index(heading) }
+        expect(offsets).to eq(offsets.compact.sort)
+      end
+
+      it 'names the recommendation rather than leaving a reader to infer it' do
+        expect(redating_section).to include(decision.recommendation.to_s)
+      end
+
+      it 'prints the discrepancy against the threshold it was measured on' do
+        expect(redating_section)
+          .to include(decision.discrepancy_days.to_s, decision.threshold_days.to_s)
+      end
+
+      it 'names the band the threshold came from' do
+        expect(redating_section).to include(band[:id])
+      end
+
+      it 'names the guideline it came from' do
+        expect(report).to include(decision.source.citation)
+      end
+    end
+
+    # Refusals print, here as everywhere: a section that vanished would read as
+    # a redating nobody asked for rather than one that could not be answered.
+    context 'when the request could not be read at all' do
+      let(:redating) { ComposedReport.redating(established_by: :martian) }
+
+      it 'keeps the section and says why it could not answer' do
+        expect(redating_section).to include('martian')
+      end
+
+      it 'names the derivations it does recognise' do
+        expect(redating_section).to include('lmp')
+      end
+    end
+
+    # Quoted source text, printed in full. A summary would be this library
+    # speaking, and the exemption from the no-classification rule is precisely
+    # that the guideline is speaking here and not us.
+    context 'when the band carries the guideline\'s caveat' do
+      let(:redating) { ComposedReport.redating(discrepancy: 12) }
+
+      it 'prints the caveat word for word' do
+        expect(squeezed(plain(report))).to include(squeezed(decision.caveat.text))
+      end
+
+      it 'keeps every row and value free of a classification even so' do
+        expect(rows_and_values).not_to match(classification)
+      end
+
+      # The narrowing, stated as an assertion: the quotation is the only place
+      # the word appears, and taking it out leaves a page that still passes.
+      it 'is the only place on the page that wording appears' do
+        expect(plain(report)).to match(classification)
+      end
+    end
+
+    context 'when the discrepancy falls in the discretionary zone' do
+      let(:redating) do
+        ComposedReport.redating(ga_days: ComposedReport.inside_band(zoned),
+                                discrepancy: zoned[:discretionary_zone][:from_days] + 1)
+      end
+
+      it 'says the guideline defers rather than printing a bare yes or no' do
+        expect(redating_section).to include('discretionary')
+      end
+
+      it 'prints the zone the deferral came from' do
+        zone = zoned[:discretionary_zone]
+        expect(redating_section)
+          .to include(zone[:from_days].to_s, zone[:to_days].to_s)
+      end
+    end
+
+    context 'when the pregnancy was dated by embryo transfer' do
+      let(:redating) { ComposedReport.redating(discrepancy: 12, established_by: :transfer) }
+
+      it 'says the established date stands' do
+        expect(redating_section).to include('keep')
+      end
+
+      it 'names the rule that decided it' do
+        expect(redating_section).to match(/ivf/i)
+      end
+
+      # Absent, not blank: a band and a threshold printed here would attribute
+      # the answer to a reading that played no part in it.
+      it 'prints no band it never selected' do
+        expect(redating_section).not_to include(band[:id])
+      end
+
+      it 'prints no threshold that played no part in the decision' do
+        expect(redating_section).not_to include(band[:threshold_days].to_s)
+      end
+
+      it 'prints no caveat belonging to a band it never selected' do
+        expect(squeezed(plain(report))).not_to include(squeezed(redating_caveat_text))
+      end
+    end
+
+    context 'when the answer would differ in the neighbouring band' do
+      let(:redating) do
+        ComposedReport.redating(ga_days: ComposedReport.edge_days(zoned[:ga_from]),
+                                discrepancy: zoned[:discretionary_zone][:from_days] + 1)
+      end
+
+      it 'names the band on the other side of the edge' do
+        expect(redating_section).to include(decision.boundary_sensitivity.adjacent_band.to_s)
+      end
+
+      it 'names what the recommendation would have been there' do
+        expect(redating_section)
+          .to include(decision.boundary_sensitivity.recommendation.to_s)
+      end
+    end
+  end
+
+  def redating_caveat_text
+    ComposedReport.redating_manifest.dig(:caveats, :third_trimester, :text)
   end
 
   describe 'when the stream is not a terminal' do

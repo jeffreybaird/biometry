@@ -29,9 +29,11 @@ module Biometry
         @tty = tty
       end
 
-      def call(dating:, ga:, scan:, growth:)
-        [dating_section(dating), '', growth_section(ga, scan, growth), '',
-         footnotes(growth)].join("\n")
+      # `redating` is optional: a report nobody asked a redating question of
+      # renders exactly as it did before the section existed.
+      def call(dating:, ga:, scan:, growth:, redating: nil)
+        [dating_section(dating), '', *redating_section(redating),
+         growth_section(ga, scan, growth), '', footnotes(growth, redating)].join("\n")
       end
 
       private
@@ -54,6 +56,52 @@ module Biometry
         [Format.derivation(derivation, parameters: estimate.parameters),
          "EDD #{estimate.edd}", estimate.ga.to_s]
       end
+
+      # -------------------------------------------------------------- redating
+
+      def redating_section(redating)
+        return [] if redating.nil?
+
+        [emphasise('Redating'), *aligned(redating_rows(redating)), '']
+      end
+
+      def redating_rows(redating)
+        return [['', Reason.call(redating.failure)]] if redating.failure?
+
+        decision = redating.value!
+        [[decision.recommendation.to_s, measured(decision)], *qualifiers(decision)]
+      end
+
+      def measured(decision)
+        return "#{decision.discrepancy_days} day(s), by #{decision.rule}" if decision.rule
+
+        "#{decision.discrepancy_days} day(s) against a #{decision.threshold_days} day " \
+          "threshold, #{decision.band} at #{decision.indexing_ga}"
+      end
+
+      # The caveat is printed word for word. A summary would be this library
+      # speaking; the whole reason it is exempt from the no-classification rule
+      # is that the guideline is speaking here and we are not.
+      def qualifiers(decision)
+        [zone_row(decision), sensitivity_row(decision), caveat_row(decision)].compact
+      end
+
+      def zone_row(decision)
+        return nil unless decision.zone
+
+        ['', "the guideline defers between #{decision.zone.first} and " \
+             "#{decision.zone.last} days"]
+      end
+
+      def sensitivity_row(decision)
+        sensitivity = decision.boundary_sensitivity
+        return nil unless sensitivity
+
+        ['', "#{sensitivity.days_to_edge} day(s) from #{sensitivity.adjacent_band}, " \
+             "where this would be #{sensitivity.recommendation}"]
+      end
+
+      def caveat_row(decision) = decision.caveat && ['', decision.caveat.text.strip]
 
       # ---------------------------------------------------------------- growth
 
@@ -129,17 +177,19 @@ module Biometry
       # One citation per line. Joined, the five run to several hundred
       # characters and a reader cannot pick out the paper behind the row they
       # are checking.
-      def footnotes(growth)
-        sources = citations(growth).map { |citation| "    #{citation}" }
+      def footnotes(growth, redating)
+        sources = citations(growth, redating).map { |citation| "    #{citation}" }
         ["  #{POOLED_NOTE}", '  Sources:', *sources].join("\n")
       end
 
       # Every standard with a row is cited whether or not its reading
       # succeeded — the row is on the page, so the paper behind it belongs in
       # the footer. The weight's paper is cited too, because on three of the
-      # four standards it is a different one.
-      def citations(growth)
-        growth.flat_map { |row| [row[:citation], cited(row[:weight])] }.compact.uniq
+      # four standards it is a different one, and the guideline behind a
+      # redating for the same reason.
+      def citations(growth, redating)
+        rows = growth.flat_map { |row| [row[:citation], cited(row[:weight])] }
+        (rows + [redating && cited(redating)]).compact.uniq
       end
 
       def cited(result) = result.success? ? result.value!.source.citation : nil

@@ -18,6 +18,13 @@ module Biometry
       MEASUREMENTS = %i[bpd hc ac fl].freeze
       GA = /\A(\d+)w(\d+)d\z/
 
+      # Three flags, one request. Two of them alone describe a comparison with
+      # nothing to compare against, and guessing the third means guessing at
+      # the clinical question rather than at a formatting detail — not least
+      # because --established-by is what decides whether the pregnancy may be
+      # redated at all.
+      REDATING = %i[established_edd established_by scan_edd].freeze
+
       def self.parse(argv)
         new.parse(argv)
       end
@@ -30,6 +37,7 @@ module Biometry
         parser(options).parse(argv)
         raise UsageError, 'missing --ga, which no derivation may choose for you' unless options[:ga]
 
+        require_redating_together(options)
         options
       end
 
@@ -39,6 +47,7 @@ module Biometry
         OptionParser.new do |parser|
           measurements(parser, options)
           dating(parser, options)
+          redating(parser, options)
           charts(parser, options)
           parser.on('--ga GA') { |value| options[:ga] = gestational_age(value) }
           parser.on('--at DATE') { |value| options[:at] = date(value, '--at') }
@@ -50,6 +59,22 @@ module Biometry
         MEASUREMENTS.each do |kind|
           parser.on("--#{kind} MM") { |value| options[kind] = millimetres(value, "--#{kind}") }
         end
+      end
+
+      def redating(parser, options)
+        parser.on('--established-edd DATE') do |value|
+          options[:established_edd] = date(value, '--established-edd')
+        end
+        parser.on('--established-by DERIVATION') { |v| options[:established_by] = v.to_sym }
+        parser.on('--scan-edd DATE') { |v| options[:scan_edd] = date(v, '--scan-edd') }
+      end
+
+      def require_redating_together(options)
+        supplied = REDATING.select { |key| options[key] }
+        return if supplied.empty? || supplied.length == REDATING.length
+
+        missing = (REDATING - supplied).map { |key| "--#{key.to_s.tr('_', '-')}" }
+        raise UsageError, "#{missing.join(' and ')} must be given alongside the others"
       end
 
       def dating(parser, options)
