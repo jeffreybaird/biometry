@@ -745,23 +745,40 @@ and `Estimate#uncertainty` did not exist when it was drawn. Corrected shape:
 ```
 Dating
   LMP (28d cycle)     EDD 2026-10-08   32w0d
-  Transfer (day 5)    EDD 2026-10-05   32w2d
+  Transfer (day 5)    EDD 2026-10-05   32w3d
   CRL                 unavailable — no dating standard in data/
   Biometry            unavailable — no dating standard in data/
 
 Growth    GA 32w0d    AC 27.4  HC 29.1  FL 6.2  BPD 8.2 cm
 
-  INTERGROWTH-21st  2,180 g    —      11th   prescriptive
-  Hadlock 1991      2,240 g  ±7.4%     8th   reference
-  WHO (female)      2,215 g  ±7.5%    10th   reference
-  NICHD (white)     2,215 g  ±7.5%     9th   prescriptive
-  NICHD (black)     2,215 g  ±7.5%    19th   prescriptive
-  NICHD (hispanic)  2,215 g  ±7.5%    15th   prescriptive
-  NICHD (asian)     2,215 g  ±7.5%    20th   prescriptive
+  INTERGROWTH-21st  1,697 g    —      40th  prescriptive  (AC+HC)
+  Hadlock 1991      1,852 g  ±7.4%    35th  reference     (BPD+HC+AC+FL)
+  WHO (female)      1,834 g  ±7.5%    45th  reference     (HC+AC+FL)
+  NICHD (white)     1,834 g  ±7.5%    32nd  prescriptive  (HC+AC+FL)
+  NICHD (black)     1,834 g  ±7.5%    44th  prescriptive  (HC+AC+FL)
+  NICHD (hispanic)  1,834 g  ±7.5%    39th  prescriptive  (HC+AC+FL)
+  NICHD (asian)     1,834 g  ±7.5%    46th  prescriptive  (HC+AC+FL)
 
   SD is pooled; per-stratum figures are not transcribed.
-  Sources: Stirnemann 2017; Hadlock 1985/1991; Kiserud 2017; Buck Louis 2015
+  Sources: <the full citation of every distinct provenance the rows touched>
 ```
+
+Numbers above are illustrative of the *shape*, not transcribed: the specs
+build their inputs from the real services against the real manifests, so the
+rendered values are whatever the library actually produces.
+
+**`DatingEstimate` carries the derivation's parameters**, added 2026-08-13:
+`{ cycle_length: 28 }` or `{ embryo_day: 5 }`. A 35-day cycle moves the EDD by
+a week, so a due date printed without the assumption behind it is not a report
+— the same reason the model already carries `reference_date`. The row renders
+`LMP (28d cycle)` rather than making a reader reconstruct it from their own
+input.
+
+**The parameter set is the formula column.** "Every row names its formula"
+above means the row shows which measurements produced its weight —
+`(HC+AC+FL)` — which is what `Estimate#inputs` exists for and what makes three
+distinct EFW values legible as three rather than as an unexplained
+disagreement.
 
 **NICHD prints all four charts whenever no stratum is supplied.** The spread is
 the paper's headline finding and the reason this tool exists; hiding it behind
