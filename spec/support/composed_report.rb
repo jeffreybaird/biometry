@@ -122,4 +122,59 @@ module ComposedReport
       .new(manifest: manifest('nichd'), table: table('nichd'))
       .call(estimate: estimate, ga: ga, stratum: stratum)
   end
+
+  # -------------------------------------------------------------- redating --
+  #
+  # Slice 2's manifest, and the only place a spec may learn a threshold, a band
+  # edge, a zone bound or a caveat's wording. Those values were reconstructed
+  # rather than transcribed: no computation regenerates them and no second
+  # source in data/ quotes them, so a spec carrying its own copy would agree
+  # with a typo instead of catching one.
+  def redating_manifest = manifest('acog_redating')
+
+  def redating_bands = redating_manifest[:bands]
+
+  # Found by the feature rather than by id, so a rename in the manifest cannot
+  # leave a spec asserting about a band that no longer publishes what it is
+  # here to test.
+  def band_with_zone = redating_bands.find { |band| band[:discretionary_zone] }
+
+  def band_with_caveat = redating_bands.find { |band| band[:caveat] }
+
+  def band_before(band) = redating_bands[redating_bands.index(band) - 1]
+
+  # Quoted source text, exempt from the no-classification rule because it
+  # labels nobody: it warns what redating risks, and it prints verbatim.
+  def quoted_caveats = redating_manifest[:caveats].values.map { |caveat| caveat[:text] }
+
+  def edge_days(edge) = edge && ((edge[:weeks] * 7) + edge[:days])
+
+  # A day comfortably inside a window — every band is at least a fortnight
+  # wide, so the midpoint is never near an edge and never trips the boundary
+  # sensitivity a spec about something else did not ask for.
+  def inside_band(band)
+    from = edge_days(band[:ga_from])
+    to = edge_days(band[:ga_to])
+    to ? (from + to) / 2 : from + 14
+  end
+
+  # 280 is slice 1's definitional term, read from there rather than retyped so
+  # the two conventions cannot drift apart.
+  def term_days = Biometry::Services::Dating::Lmp::TERM_DAYS
+
+  # The inverse of the service's own indexing:
+  #   indexing GA in days = 280 - (established EDD - reference date)
+  def established_edd(ga_days, at: REFERENCE_DATE) = at + (term_days - ga_days)
+
+  # A Result, not a decision. Everything the renderer is handed arrives as one:
+  # a redating that could not be read is a refusal that prints, on the same
+  # principle as a chart that refused a row.
+  def redating(ga_days: nil, discrepancy: 0, established_by: :lmp, at: REFERENCE_DATE)
+    ga_days ||= inside_band(band_with_caveat)
+    edd = established_edd(ga_days, at: at)
+    Biometry::Services::Dating::Redating.new(manifest: redating_manifest).call(
+      established_edd: edd, established_by: established_by,
+      proposed_edd: edd + discrepancy, reference_date: at
+    )
+  end
 end
