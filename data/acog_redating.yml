@@ -140,6 +140,7 @@ rules:
 
   boundary_sensitivity:
     verified: true
+    within_days: 3
     text: >
       When the indexing GA is within 3 days of a band boundary and the
       discrepancy would resolve differently in the adjacent band, report the
