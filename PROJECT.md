@@ -504,15 +504,31 @@ test against reintroducing it.
 > `band_indexed_on` and the three clinical rules are flagged verified, and the
 > loader accepts the file.
 >
-> Two things are still open in it, and neither blocks the decision logic:
-> `source.guideline_currency.checked` is `false` — a committee opinion can be
-> reaffirmed, revised or withdrawn, and CO 700's current status has not been
-> confirmed — and `fixtures:` is still `[]`, so slice 2 must write its own.
+> `source.guideline_currency.checked` is now `true`. `fixtures:` is still `[]`,
+> deliberately: worked examples belong there only once transcribed from CO 700.
 >
 > Unlike every other constant here, these thresholds have no independent check:
 > no computation regenerates them, no second source in `data/` quotes them. A
 > wrong threshold produces a passing suite and a wrong clinical answer, so the
-> fixtures slice 2 writes are the only guard there is.
+> guards slice 2 writes are the only protection those numbers have.
+>
+> **Measured, not assumed.** Every numeric leaf in the manifest was mutated one
+> at a time — 88 mutations across 30 fields, covering digit reversal, an
+> appended zero, an order of magnitude and ±1. **82 are caught.** Every
+> transposition-class mutation in every field is caught. The six survivors are
+> all single-step ±1 on four `threshold_days` and the zone's lower bound, and
+> they are unguardable from inside the file: only a transcription from CO 700
+> Table 1 closes them.
+>
+> One genuine second mention exists and is now load-bearing:
+> `caveats.third_trimester.text` says the third-trimester error is "+/-21 to 30
+> days", and `biometry_28_plus.threshold_days` is 21. That cross-reference alone
+> closes three mutations. `rules.boundary_sensitivity` gained `within_days: 3`
+> for the same reason — the number was stated only in prose, and regexing a
+> constant out of a sentence is fragile in a way nothing else here is.
+>
+> The `crl_early`/`crl_late` edge at 8w6d/9w0d is the one band boundary held
+> only by contiguity, because neither id names its weeks.
 
 Given an established EDD and a new ultrasound-derived EDD, decide whether the
 established date should be revised. The threshold widens with gestational age,
