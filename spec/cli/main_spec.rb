@@ -65,5 +65,10 @@ RSpec.describe Biometry::CLI::Main do
       cli.call(['--help'])
       expect(stdout.string).to include('--json')
     end
+
+    it 'names the command slice 5 wired' do
+      cli.call(['--help'])
+      expect(stdout.string).to include('report')
+    end
   end
 end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'report_command'
+
 module Biometry
   module CLI
     # Top-level dispatch. Owns no clinical logic: it parses argv, calls a
@@ -15,7 +17,9 @@ module Biometry
         Usage: biometry <command> [options]
 
         Commands:
-          (none yet — slice 1 adds `date`, slice 3 adds `weight`)
+          report --ga 32w0d [--bpd|--hc|--ac|--fl MM] [--lmp DATE] [--cycle N]
+                 [--transfer DATE] [--embryo-day N] [--sex SEX] [--stratum S]
+                 [--at DATE] [--json]
 
         Options:
           -h, --help       Print this message
@@ -35,6 +39,7 @@ module Biometry
         case command
         when '-h', '--help', 'help', nil then usage(EXIT_OK)
         when '-v', '--version' then version
+        when 'report' then ReportCommand.new(stdout: stdout, stderr: stderr).call(argv)
         else unknown(command)
         end
       end
