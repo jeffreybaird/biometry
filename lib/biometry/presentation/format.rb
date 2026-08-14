@@ -23,23 +23,46 @@ module Biometry
       # table rounds. --json carries the unrounded value; a program consuming
       # the output must not be handed a precision that was already discarded.
       #
-      # An open bracket is not a percentile the chart printed, so it is not
-      # printed as one.
+      # One spelling for one statement. "Past the top of what I can report" is
+      # `above 99th` whether it came from a closed form that rounded off the
+      # end or from a table with no column further out — two spellings for the
+      # same sentence is the worse defect. The two cases stay apart in --json,
+      # where `bound` is :computed in one and :above in the other, which is
+      # what a program should be branching on.
+      #
+      # A bracket bound is a published column, so it prints verbatim: WHO's
+      # combined table tops out at 97.5, and rounding that to 98 would name a
+      # column that does not exist. Rounding is for computed values, where the
+      # decimal is noise.
       def centile(percentile)
+        return "below #{ordinal(percentile.value)}" if percentile.bound == :below
+        return "above #{ordinal(percentile.value)}" if percentile.bound == :above
+
         whole = percentile.value.round
-        return "<#{ordinal(1)}" if whole < 1
-        return ">#{ordinal(99)}" if whole > 99
-        return ordinal(whole) if percentile.computed?
+        return "below #{ordinal(1)}" if whole < 1
+        return "above #{ordinal(99)}" if whole > 99
 
-        "#{percentile.bound} #{ordinal(whole)}"
+        ordinal(whole)
       end
 
+      # A fractional centile keeps its decimal — 97.5th is a column WHO
+      # publishes, and 98th is not.
       def ordinal(number)
-        suffix = TEENS.cover?(number % 100) ? 'th' : ORDINALS.fetch(number % 10, 'th')
-        "#{number}#{suffix}"
+        whole = number.to_i
+        return "#{number}th" unless number == whole
+
+        suffix = TEENS.cover?(whole % 100) ? 'th' : ORDINALS.fetch(whole % 10, 'th')
+        "#{whole}#{suffix}"
       end
 
-      def weight(estimate) = "#{thousands(estimate.value.round)} #{estimate.unit}"
+      # The SD travels in the same field as the weight it belongs to. As its
+      # own column it sat next to the percentile and read as the percentile's
+      # uncertainty, which is wrong and flattering: a percentile's uncertainty
+      # is dominated by the chart's own dispersion — 13.3% for Hadlock 1991 —
+      # not by the 7.4% of the formula that produced the weight.
+      def weight(estimate)
+        "#{thousands(estimate.value.round)} #{estimate.unit} #{uncertainty(estimate.uncertainty)}"
+      end
 
       def thousands(number) = number.to_s.reverse.scan(/\d{1,3}/).join(',').reverse
 

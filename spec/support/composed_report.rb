@@ -6,11 +6,15 @@ require 'dry/monads'
 # real services, real numbers. Hand-typed fixtures here would let the renderer
 # agree with a value the library does not actually produce.
 #
-# A growth row is one printed line — the chart, the weight its pairing
-# requires, and the report read from that weight. NICHD fans out to four rows
-# because it publishes four charts and no combined one. A row whose weight or
-# whose chart refused keeps its row and carries the Failure, because a
-# silently short table looks complete when it is not.
+# A growth row is one printed line — the chart, the chart's citation, the
+# weight its pairing requires, and the report read from that weight. NICHD fans
+# out to four rows because it publishes four charts and no combined one. A row
+# whose weight or whose chart refused keeps its row and carries the Failure,
+# because a silently short table looks complete when it is not.
+#
+# The citation is on the row rather than read back off a successful Result: a
+# row that is on the page has a paper behind it whatever its outcome was, and
+# presentation/ may not open a manifest to find out which.
 module ComposedReport
   extend Dry::Monads[:result]
 
@@ -25,6 +29,10 @@ module ComposedReport
   # Small enough at 32 weeks to fall below every chart's outermost published
   # column, which is the only way to see an open bracket rendered.
   SMALL_BIOMETRY = { bpd: 70, hc: 240, ac: 200, fl: 50 }.freeze
+
+  # Large enough at 32 weeks to fall above every chart's outermost published
+  # column, and past what either closed form can report.
+  LARGE_BIOMETRY = { bpd: 110, hc: 400, ac: 400, fl: 90 }.freeze
 
   module_function
 
@@ -76,10 +84,15 @@ module ComposedReport
 
   # A chart cannot be read from a weight that was never produced, so the row
   # carries the weight's own Failure and the renderer reports that.
+  #
+  # The citation is known from the manifest whatever the outcome, so it is set
+  # here rather than read back off the report.
   def row(standard, weight)
     report = weight.success? ? yield(weight.value!) : weight
-    { standard: standard, weight: weight, report: report }
+    { standard: standard, citation: citation_for(standard), weight: weight, report: report }
   end
+
+  def citation_for(standard) = manifest(standard.to_s)[:source][:citation]
 
   def nichd_rows(weight, ga, stratum)
     fanned = row(:nichd, weight) { |efw| nichd(efw, ga, stratum) }

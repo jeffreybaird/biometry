@@ -144,6 +144,20 @@ RSpec.describe Biometry::Presentation::JsonReport do
     it 'says how it was read, which for an open bracket is not at all' do
       expect(entry(3).dig('percentile', 'interpolation')).to eq('none')
     end
+
+    # Guard rather than a new behaviour, and the reason the table may now spell
+    # both statements as words. `below 1st` on a closed form and `below 3rd`
+    # on a table used to be told apart by `<` against `below`; here they are
+    # told apart structurally, by `bound`, which is the form a program should
+    # have been branching on all along.
+    it 'keeps a computed value past the printable range apart from a bracket' do
+      bounds = [entry(1), entry(3)].map { |row| row.dig('percentile', 'bound') }
+      expect(bounds).to eq(%w[computed below])
+    end
+
+    it 'carries the computed value itself, which no ordinal could express' do
+      expect(entry(1).dig('percentile', 'value')).to be < 1.0
+    end
   end
 
   context 'when a chart refuses the row' do
@@ -164,6 +178,24 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
     it 'carries the weight it did produce alongside the refusal' do
       expect(entry(-1).dig('weight', 'value')).to eq(estimate(3).value)
+    end
+
+    # The table renders 41.42857142857143 as `41.4` so that one gestation is
+    # not spelled three ways in one block. That is a rendering decision and it
+    # stops at the renderer: the week INTERGROWTH actually evaluated at is the
+    # exact one, and a program must be handed it rather than a tenth.
+    context 'when the gestation is not a whole number of weeks' do
+      let(:ga) { ComposedReport.ga_of(weeks: 41, days: 3) }
+
+      it 'carries the exact week the standard evaluated at, unrounded' do
+        expect(entry(0).dig('error', 'details', 'ga_weeks'))
+          .to be_within(1e-9).of(41.42857142857143)
+      end
+
+      it 'carries each standard\'s own convention rather than one shared week' do
+        weeks = Array(document['growth']).map { |row| row.dig('error', 'details', 'ga_weeks') }
+        expect(weeks).to eq([41.42857142857143, 41.4, 41, 41])
+      end
     end
   end
 

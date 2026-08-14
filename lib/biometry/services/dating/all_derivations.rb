@@ -27,7 +27,9 @@ module Biometry
         OFFERED = %i[lmp transfer].freeze
         DEFERRED = %i[crl biometry].freeze
 
-        def call(reference_date:, lmp: nil, cycle_length: 28,
+        # cycle_length defaults to nil, not 28, so Lmp can tell a supplied
+        # value from an assumed one when it reports what it was given.
+        def call(reference_date:, lmp: nil, cycle_length: nil,
                  transfer_date: nil, embryo_day: nil, scan: nil)
           _ = scan # accepted so a caller can supply it; both readers are deferred
           Success(

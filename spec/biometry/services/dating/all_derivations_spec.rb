@@ -181,6 +181,18 @@ RSpec.describe Biometry::Services::Dating::AllDerivations do
     it 'applies the 28 days Naegele assumes rather than refusing for want of one' do
       expect(edds[:lmp]).to eq(call(cycle_length: 28).value![:lmp].value!.edd)
     end
+
+    # The assumption must not travel down as though the caller had made it. A
+    # refusal that lists an input nobody supplied sends them looking for where
+    # they typed it.
+    it 'keeps the assumption out of what the menstrual derivation reports as given' do
+      expect(call(lmp: nil).value![:lmp].failure.last[:given]).to eq(%i[reference_date])
+    end
+
+    it 'passes a cycle length the caller did supply straight through' do
+      expect(call(lmp: nil, cycle_length: 35).value![:lmp].failure.last[:given])
+        .to eq(%i[cycle_length reference_date])
+    end
   end
 
   # Availability, then validity, then range — the order every derivation

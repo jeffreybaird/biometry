@@ -37,6 +37,8 @@ RSpec.describe 'the biometry report command' do
     out.gsub(/\e\[[0-9;]*m/, '').lines.grep(/^\s+(INTERGROWTH|Hadlock 1991|WHO|NICHD)/)
   end
 
+  def citation(name) = ComposedReport.manifest(name)[:source][:citation]
+
   context 'when given a gestation and a full set of measurements' do
     it 'exits 0, prints the report on stdout and says nothing on stderr' do
       status, out, err = call(base)
@@ -66,6 +68,124 @@ RSpec.describe 'the biometry report command' do
       expect(out).to include('prescriptive')
       expect(out)
         .not_to match(/\b(sga|iugr|macrosom\w*|restrict\w*|abnormal|normal|pre-?term|post-?term)\b/i)
+    end
+  end
+
+  # A row is on the page and the paper behind it is not. The reader who wants
+  # to check the standard that just refused them has nothing to look up, and
+  # which paper a chart is does not depend on whether this request could be
+  # answered from it.
+  context 'when every chart refuses the gestation' do
+    def refused = call(base(ga: '41w0d'))
+
+    it 'exits 0 and prints a row for each of the four standards' do
+      status, out, err = refused
+      expect(status).to eq(0)
+      expect(growth_rows(out).length).to eq(4)
+      expect(err).to be_empty
+    end
+
+    %w[intergrowth21 hadlock_1991 who nichd].each do |name|
+      it "cites #{name}, whose row refused" do
+        _, out, = refused
+        expect(out).to include(citation(name))
+      end
+    end
+
+    it 'cites the paper behind the weights it did produce as well' do
+      _, out, = refused
+      expect(out).to include(citation('hadlock_1985'))
+    end
+
+    # Completed weeks on the tables, tenth weeks on Hadlock 1991, exact weeks
+    # on INTERGROWTH: three conventions for one gestation, and the block a
+    # reader is looking at should not spell 41 weeks two ways.
+    it 'names the gestation the same way on every row' do
+      _, out, = refused
+      expect(growth_rows(out).map { |line| line[/given [\d.]+/] }.uniq).to eq(['given 41'])
+    end
+
+    context 'when the gestation is not a whole number of weeks' do
+      it 'keeps the fraction, reporting two conventions rather than four spellings' do
+        _, out, = call(base(ga: '41w3d'))
+        expect(growth_rows(out).map { |line| line[/given [\d.]+/] }.uniq)
+          .to contain_exactly('given 41.4', 'given 41')
+      end
+    end
+  end
+
+  # WHO's combined table tops out at 97.5. Rounding the open bracket to 98
+  # names a column that does not exist; a published bound is not a computed
+  # value and is not rounded.
+  context 'when the weight falls above every chart\'s outermost column' do
+    def huge(**overrides)
+      call(%w[report --ga 32w0d --at 2026-08-13 --lmp 2026-01-01
+              --bpd 110 --hc 400 --ac 400 --fl 90] + overrides.flat_map { |k, v| ["--#{k}", v] })
+    end
+
+    it 'prints the centile WHO published rather than the one it rounds to' do
+      _, out, = huge
+      expect(out).to include('above 97.5th')
+      expect(out).not_to include('above 98th')
+    end
+
+    it 'brackets NICHD against the 97th, which is the column it publishes' do
+      _, out, = huge
+      expect(out).to include('above 97th')
+    end
+
+    # Both closed forms and both tables now say the one thing one way.
+    it 'spells every open statement in words, with no comparison symbols' do
+      _, out, = huge
+      expect(growth_rows(out).join).to include('above 99th')
+      expect(growth_rows(out).join).not_to match(/[<>]/)
+    end
+
+    it 'brackets a sex-specific chart against the columns that chart published' do
+      _, out, = huge(sex: 'female')
+      expect(out).to match(/WHO \(female\).*above 95th/)
+    end
+  end
+
+  # 7.4% is the EFW formula's SD. Standing in a column of its own beside a
+  # percentile it reads as the percentile's, whose uncertainty is dominated by
+  # the chart's dispersion and is roughly twice as wide.
+  context 'when a row carries both a weight and a percentile' do
+    it 'renders the weight and its SD as one field, with no column between' do
+      _, out, = call(base)
+      expect(growth_rows(out).join).to include('1,852 g ±7.4%')
+    end
+
+    it 'keeps the SD a column away from the centile it does not describe' do
+      _, out, = call(base)
+      expect(growth_rows(out).join).to match(/1,852 g ±7\.4% {2,}\d+\w+/)
+    end
+
+    it 'says the SD is the weight formula\'s and excludes the chart\'s dispersion' do
+      _, out, = call(base)
+      note = out.lines.grep(/SD/).join
+      expect(note).to match(/formula/i).and match(/chart/i)
+    end
+  end
+
+  # A default presented as something the caller supplied sends them looking for
+  # where they typed it.
+  context 'when no cycle length was supplied and the dating cannot be derived' do
+    it 'lists only the inputs that were actually supplied' do
+      _, out, = call(%w[report --ga 32w0d --at 2026-08-13 --ac 274 --hc 291 --fl 62])
+      expect(out).to include('requires lmp, reference_date; given reference_date')
+    end
+
+    it 'names a cycle length the caller did type' do
+      _, out, = call(%w[report --ga 32w0d --at 2026-08-13 --cycle 35 --ac 274])
+      expect(out).to include('given cycle_length, reference_date')
+    end
+
+    # The assumption still applies; it is reported as the estimate's own
+    # parameter, where it is true, rather than as an input that arrived.
+    it 'still assumes 28 days when it can date the pregnancy' do
+      _, out, = call(%w[report --ga 32w0d --at 2026-08-13 --lmp 2026-01-01 --ac 274])
+      expect(out).to include('LMP (28d cycle)', 'EDD 2026-10-08')
     end
   end
 

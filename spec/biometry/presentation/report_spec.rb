@@ -33,6 +33,12 @@ RSpec.describe Biometry::Presentation::Report do
     tidy(growth_rows(text).find { |line| line.include?(label) }, label)
   end
 
+  # The unsqueezed line. Padding is alignment and normally not the contract,
+  # but a field is only one field if nothing can be inserted into it.
+  def raw_row(label)
+    growth_rows.find { |line| line.include?(label) }.to_s.strip
+  end
+
   def dating_row(label)
     tidy(plain(report).lines.find { |line| line.match?(/^\s+#{label}\s/) }, label)
   end
@@ -133,6 +139,30 @@ RSpec.describe Biometry::Presentation::Report do
       expect(weights.uniq).to contain_exactly('1,697 g', '1,852 g', '1,834 g')
     end
 
+    # The SD is the EFW formula's. In a column of its own it reads as the
+    # neighbouring percentile's, and the percentile's uncertainty is dominated
+    # by the chart's dispersion — 13.3% for Hadlock 1991 against the formula's
+    # 7.4%. So it is one field with the weight, with no alignment padding able
+    # to come between them.
+    it 'renders the weight and its SD as one field rather than two columns' do
+      expect(raw_row('Hadlock 1991')).to include('1,852 g ±7.4%')
+    end
+
+    it 'keeps that field together on a row whose SD differs' do
+      expect(raw_row('WHO (female)')).to include('1,834 g ±7.5%')
+    end
+
+    # The SD sits inside the weight's field, so the gap between it and the
+    # centile is a column boundary and not a single space. That is what stops
+    # the two reading as one statement.
+    it 'separates the SD from the centile by a column, not by a space' do
+      expect(raw_row('WHO (female)')).to match(/1,834 g ±7\.5% {2,}45th/)
+    end
+
+    it 'still says which standard published no SD rather than leaving it blank' do
+      expect(raw_row('INTERGROWTH-21st')).to include('1,697 g —')
+    end
+
     it 'prints no percentile without the standard it came from' do
       ordinals = plain(report).lines.grep(/\d(st|nd|rd|th)\b/)
       expect(ordinals.length).to eq(7)
@@ -147,8 +177,22 @@ RSpec.describe Biometry::Presentation::Report do
   end
 
   describe 'the footnotes' do
+    def notes = plain(report).lines.grep(/SD/).join
+
     it 'states that every SD shown is pooled, because pooling hides the tails' do
       expect(report).to match(/SD .*pooled/i)
+    end
+
+    # 7.4% is the EFW formula's SD. The percentile's uncertainty is dominated
+    # by the chart's own dispersion — 13.3% for Hadlock 1991 — so a note that
+    # left the SD unattributed would imply a tighter number than this library
+    # can support.
+    it 'says the SD belongs to the weight formula' do
+      expect(notes).to match(/formula/i)
+    end
+
+    it 'says the SD does not include the chart\'s dispersion' do
+      expect(notes).to match(/chart/i)
     end
 
     it 'names every chart the rows were read from' do
@@ -162,6 +206,37 @@ RSpec.describe Biometry::Presentation::Report do
     it 'names the paper the weights came from as well' do
       expect(report)
         .to include('Sources', ComposedReport.manifest('hadlock_1985')[:source][:citation])
+    end
+  end
+
+  # A row is on the page and the paper behind it is not: the reader has no way
+  # to check the standard that just refused them. Whether a chart could be read
+  # is a fact about this request; which paper it is is a fact about the chart,
+  # known from its manifest either way. So the row carries its citation and
+  # every standard with a row is cited.
+  describe 'the citation on a row that could not be read' do
+    let(:ga) { ComposedReport.ga_of(weeks: 41) }
+    let(:growth) { ComposedReport.growth(ga: ga) }
+
+    %w[who nichd hadlock_1991].each do |name|
+      it "cites #{name}, whose row refused" do
+        expect(report).to include(ComposedReport.manifest(name)[:source][:citation])
+      end
+    end
+
+    it 'cites every standard on the page, refusals and all' do
+      papers = %w[intergrowth21 hadlock_1991 who nichd hadlock_1985]
+      citations = papers.map { |name| ComposedReport.manifest(name)[:source][:citation] }
+      expect(citations).to all(satisfy { |citation| report.include?(citation) })
+    end
+  end
+
+  context 'when no weight could be produced for a row at all' do
+    let(:scan) { ComposedReport.scan_of(ac: 274, fl: 62) }
+    let(:growth) { ComposedReport.growth(scan: scan) }
+
+    it 'still cites the chart the row names, there being a row to check' do
+      expect(report).to include(ComposedReport.manifest('who')[:source][:citation])
     end
   end
 
@@ -212,6 +287,30 @@ RSpec.describe Biometry::Presentation::Report do
     it 'names each chart\'s own window rather than one shared range' do
       expect(row('INTERGROWTH-21st')).to include('covers 22–40 weeks')
     end
+
+    # Three conventions reach the renderer for one gestation: completed weeks
+    # from the tables, tenth weeks from Hadlock 1991, exact weeks from
+    # INTERGROWTH. The conventions are real and --json keeps them; the block a
+    # reader is looking at should not spell 41 weeks two ways.
+    it 'names the gestation the same way on every row' do
+      given = growth_rows.map { |line| line[/given [\d.]+/] }
+      expect(given.uniq).to eq(['given 41'])
+    end
+
+    context 'when the gestation is not a whole number of weeks' do
+      let(:ga) { ComposedReport.ga_of(weeks: 41, days: 3) }
+
+      it 'keeps the fraction on the standards that evaluate between weeks' do
+        expect(row('INTERGROWTH-21st')).to end_with('given 41.4')
+      end
+
+      # 41w3d is 41.428... exact and 41.4 to the tenth on the two closed forms,
+      # and the completed week 41 on the two tables. Two statements, not four.
+      it 'reports the two conventions as two, rather than as four spellings' do
+        expect(growth_rows.map { |line| line[/given [\d.]+/] }.uniq)
+          .to contain_exactly('given 41.4', 'given 41')
+      end
+    end
   end
 
   context 'when the scan cannot feed the formulas the charts pair with' do
@@ -241,8 +340,55 @@ RSpec.describe Biometry::Presentation::Report do
       expect(row('WHO (female)')).to include('below 5th')
     end
 
+    # Inverted from `<1st`. The two statements were spelled two ways in one
+    # block — `<1st` and `>99th` from the closed forms, `below 3rd` and
+    # `above 97th` from the tables — and both mean "past the outermost thing I
+    # can report". One spelling, in words.
     it 'prints a closed-form value that rounds to zero as below the first centile' do
-      expect(row('Hadlock 1991')).to include('<1st')
+      expect(row('Hadlock 1991')).to include('below 1st')
+    end
+
+    it 'uses no comparison symbols anywhere in the block' do
+      expect(growth_rows.join).not_to match(/[<>]/)
+    end
+  end
+
+  # The upper half of the same rule, and the one that showed WHO reporting a
+  # column it does not publish: the combined table tops out at 97.5, and
+  # rounding an open bracket to 98 names a column that does not exist.
+  context 'when the weight falls above the outermost published column' do
+    let(:scan) { ComposedReport.scan_of(ComposedReport::LARGE_BIOMETRY) }
+    let(:growth) { ComposedReport.growth(scan: scan, sex: :combined) }
+
+    it 'prints the published bound verbatim rather than rounding it to a column' do
+      expect(row('WHO (combined)'))
+        .to eq('WHO (combined) 5,681 g ±7.5% above 97.5th reference (HC+AC+FL)')
+    end
+
+    it 'brackets NICHD against its own outermost column, which is the 97th' do
+      expect(row('NICHD (white)')).to include('above 97th')
+    end
+
+    it 'prints a closed-form value that rounds past a hundred as above the ninety-ninth' do
+      expect(row('Hadlock 1991')).to include('above 99th')
+    end
+
+    it 'says it the same way on the other closed form' do
+      expect(row('INTERGROWTH-21st')).to include('above 99th')
+    end
+
+    it 'uses no comparison symbols here either' do
+      expect(growth_rows.join).not_to match(/[<>]/)
+    end
+
+    context 'when the chart read is a sex-specific one' do
+      let(:growth) { ComposedReport.growth(scan: scan, sex: :female) }
+
+      # WHO's sex-specific tables omit the 97.5th column, so the same weight
+      # brackets one column further in than it does on the combined chart.
+      it 'brackets against the columns that chart actually published' do
+        expect(row('WHO (female)')).to include('above 95th')
+      end
     end
   end
 

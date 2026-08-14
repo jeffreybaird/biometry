@@ -23,7 +23,10 @@ module Biometry
       end
 
       def parse(argv)
-        options = { at: Date.today, cycle: 28 }
+        # No default cycle: an unsupplied one stays absent all the way to the
+        # derivation, which applies the assumption and says so in its
+        # parameters rather than reporting it back as user input.
+        options = { at: Date.today }
         parser(options).parse(argv)
         raise UsageError, 'missing --ga, which no derivation may choose for you' unless options[:ga]
 

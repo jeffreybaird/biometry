@@ -42,10 +42,21 @@ module Biometry
       # published limit on gestation is transcribed, and printing one would
       # invent it.
       def out_of_range(details)
-        low, high = details[:valid_range]
+        low, high = details[:valid_range].map { |bound| bound && weeks(bound) }
         window = high ? "#{low}–#{high} weeks" : "#{low} weeks and later"
         "out of range #{DASH} #{details[:standard]} covers #{window}; " \
-          "given #{details[:ga_weeks]}"
+          "given #{weeks(details[:ga_weeks])}"
+      end
+
+      # One gestation reaches here as 41, 41.0 or 41.428571, because each
+      # standard converts to its own convention. The conversions are real and
+      # the payload keeps them exactly — a --json consumer should see
+      # 41.428571 — but printing the same gestation three ways in one block
+      # reads as three different gestations.
+      def weeks(value)
+        return value unless value.is_a?(Float)
+
+        value == value.round ? value.round : format('%.1f', value)
       end
 
       def mismatch(details)

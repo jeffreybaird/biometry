@@ -172,11 +172,36 @@ RSpec.describe Biometry::Services::Dating::Lmp do
       expect(call(lmp: nil)).to be_failure
     end
 
-    it 'names what it required and what it was given' do
+    # Inverted: `given` used to list the cycle length whether or not a caller
+    # supplied one, because the default was applied before the guard read it. A
+    # caller who typed no `--cycle` was then told they had, and went looking
+    # for where. `given` is a report of what arrived, so a default is absent
+    # from it — the assumption still applies, and a successful estimate still
+    # names the cycle it was derived on.
+    it 'names what it required and only what it was actually given' do
       expect(call(lmp: nil).failure).to eq(
+        [:insufficient_data,
+         { required: %i[lmp reference_date], given: %i[reference_date] }]
+      )
+    end
+
+    it 'lists a cycle length the caller did supply, since that one did arrive' do
+      expect(call(lmp: nil, cycle_length: 35).failure).to eq(
         [:insufficient_data,
          { required: %i[lmp reference_date], given: %i[cycle_length reference_date] }]
       )
+    end
+
+    # The one that would otherwise creep back: 28 explicitly typed is still an
+    # input the caller supplied, and is indistinguishable from the default only
+    # by value.
+    it 'lists an explicit 28, which is a supplied value and not the assumption' do
+      expect(call(lmp: nil, cycle_length: 28).failure.last[:given])
+        .to eq(%i[cycle_length reference_date])
+    end
+
+    it 'still applies the assumed cycle when the caller supplies none' do
+      expect(call(cycle_length: nil).value!.parameters).to eq(cycle_length: 28)
     end
   end
 

@@ -32,14 +32,18 @@ module Biometry
         # Guards answer in order: validity, then range. A range computed from
         # an invalid cycle length means nothing, so reporting it would send the
         # caller after the wrong problem.
-        def call(lmp:, reference_date:, cycle_length: ASSUMED_CYCLE_DAYS)
+        # `cycle_length` defaults to nil rather than to 28 so that a value the
+        # caller never supplied is not reported back to them as one they did.
+        # A default presented as user input sends a reader looking for where
+        # they typed it.
+        def call(lmp:, reference_date:, cycle_length: nil)
           given = { lmp: lmp, cycle_length: cycle_length, reference_date: reference_date }
           return insufficient(given) unless REQUIRED.all? { |key| !given[key].nil? }
 
           invalid = invalid_fields(given)
           return Failure([:invalid_input, invalid]) unless invalid.empty?
 
-          dated(lmp, reference_date, cycle_length)
+          dated(lmp, reference_date, cycle_length || ASSUMED_CYCLE_DAYS)
         end
 
         private
@@ -54,8 +58,9 @@ module Biometry
 
         # DateTime is a Date only by inheritance, so instance_of? rather than
         # is_a? — otherwise a zone reaches the arithmetic through the back door.
+        # An absent cycle length is not an invalid one: the assumption applies.
         def invalid_fields(given)
-          given.select do |key, value|
+          given.compact.select do |key, value|
             key == :cycle_length ? !whole_positive?(value) : !value.instance_of?(Date)
           end
         end

@@ -106,8 +106,11 @@ module Biometry
           interpolation: percentile.interpolation, citation: percentile.source.citation }
       end
 
+      # Same rule as the table: every standard with an entry is cited, whether
+      # or not its reading succeeded. A document listing two sources for four
+      # entries is the same defect there as here.
       def citations(growth)
-        growth.flat_map { |row| [cited(row[:weight]), cited(row[:report])] }.compact.uniq
+        growth.flat_map { |row| [row[:citation], cited(row[:weight])] }.compact.uniq
       end
 
       def cited(result) = result.success? ? result.value!.source.citation : nil

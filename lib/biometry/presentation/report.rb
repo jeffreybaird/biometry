@@ -20,7 +20,10 @@ module Biometry
       BOLD = "\e[1m"
       RESET = "\e[0m"
       GAP = '  '
-      POOLED_NOTE = 'SD is pooled; per-stratum figures are not transcribed.'
+      # Phrased in percentages, not ordinals: an ordinal here would be counted
+      # as a centile by anything scanning the output for one.
+      POOLED_NOTE = 'SD is the EFW formula\'s, pooled; per-stratum figures are not ' \
+                    'transcribed. It does not include the chart\'s own dispersion.'
 
       def initialize(tty: false)
         @tty = tty
@@ -69,10 +72,7 @@ module Biometry
         weight_columns(row) + centile_columns(row)
       end
 
-      def weight_columns(row)
-        weight = row[:weight].value!
-        [label_for(row), Format.weight(weight), Format.uncertainty(weight.uncertainty)]
-      end
+      def weight_columns(row) = [label_for(row), Format.weight(row[:weight].value!)]
 
       def refusal(row, failure) = [Format.standard(row[:standard]), Reason.call(failure)]
 
@@ -134,8 +134,12 @@ module Biometry
         ["  #{POOLED_NOTE}", '  Sources:', *sources].join("\n")
       end
 
+      # Every standard with a row is cited whether or not its reading
+      # succeeded — the row is on the page, so the paper behind it belongs in
+      # the footer. The weight's paper is cited too, because on three of the
+      # four standards it is a different one.
       def citations(growth)
-        growth.flat_map { |row| [cited(row[:weight]), cited(row[:report])] }.compact.uniq
+        growth.flat_map { |row| [row[:citation], cited(row[:weight])] }.compact.uniq
       end
 
       def cited(result) = result.success? ? result.value!.source.citation : nil

@@ -45,9 +45,13 @@ module Biometry
       # NICHD answers an unsupplied stratum with one Percentile per chart, so
       # one call becomes four rows. That is the adapter's decision about its
       # own data; this only unpacks it.
+      # The citation comes from the manifest rather than from the reading, so
+      # a row that could not be read is still attributable. A row on the page
+      # whose paper is not in the footer leaves a reader unable to check it.
       def rows(standard, weight, **query)
         report = weight.success? ? read(standard, weight.value!, **query) : weight
-        row = { standard: standard, weight: weight, report: report }
+        row = { standard: standard, weight: weight, report: report,
+                citation: manifests[standard].dig(:source, :citation) }
         return [row] unless standard == :nichd && report.success?
 
         report.value!.map { |percentile| row.merge(report: Success(percentile)) }

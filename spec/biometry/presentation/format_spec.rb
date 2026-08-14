@@ -3,11 +3,22 @@
 # Unit layer. Pure functions from a value to the text that stands for it.
 # Nothing here reads a manifest, calls a service or touches a stream.
 #
-# Two rules are pinned in this file and both are slice 5 decisions rather than
-# taste. Text rounds and JSON does not, so a centile of 4.3 reads `4th` here
-# while the JSON document keeps 4.3. And an open bracket is rendered as the
-# bracket it is — `below 3rd` — never as a bare number the chart did not
-# publish.
+# Three rules are pinned in this file and all three are decisions rather than
+# taste.
+#
+# Rounding is for computed values, where the decimal place is noise a reader
+# comparing standards does not want: 4.3 reads `4th` here while the JSON
+# document keeps 4.3. A bracket bound is not a computed value — it is a column
+# the chart published — so it is printed verbatim. WHO's combined table tops
+# out at 97.5 and reads `above 97.5th`; rounding it to 98 would name a column
+# that does not exist.
+#
+# One spelling for one statement. `above 99th`, `below 1st`, `above 97.5th`,
+# `below 3rd` — words throughout, no `>` and no `<`, because "past the top of
+# what I can report" said two ways reads as two different claims.
+#
+# The SD belongs to the weight, not to the centile beside it, so it is rendered
+# with the weight as one field rather than left to sit in a column of its own.
 RSpec.describe Biometry::Presentation::Format do
   def provenance(standard: :nichd, stratum: :white)
     Biometry::Provenance.new(standard: standard, citation: 'Buck Louis et al. 2015',
@@ -51,29 +62,72 @@ RSpec.describe Biometry::Presentation::Format do
       expect(described_class.centile(percentile(97.0, bound: :above))).to eq('above 97th')
     end
 
+    # WHO's combined table publishes 2.5 and 97.5. Rounding either to a whole
+    # ordinal names a column no chart printed, so the bound is published as it
+    # was published.
+    it 'keeps a fractional published bound rather than rounding it to a column' do
+      expect(described_class.centile(percentile(97.5, bound: :above))).to eq('above 97.5th')
+    end
+
+    it 'keeps the fractional lower bound of the same table' do
+      expect(described_class.centile(percentile(2.5, bound: :below))).to eq('below 2.5th')
+    end
+
+    # The bound arrives from the table as a Float. 5.0 is WHO's female chart
+    # published 5th column, not a five-point-oh-th centile.
+    it 'renders a whole-numbered bound without a decimal place' do
+      expect(described_class.centile(percentile(5.0, bound: :below))).to eq('below 5th')
+    end
+
     # INTERGROWTH's closed form returns 7.7e-08 for the small scan. There is
     # no 0th centile, and printing one would read as a value the standard
     # published.
+    #
+    # Inverted from `<1st`: one spelling for the statement. The distinction the
+    # symbols drew — a computed value past the printable range is not a table
+    # that cannot answer — is kept structurally in the JSON, where `bound` is
+    # :computed here and :below on a bracket.
     it 'renders a computed value that rounds to zero as below the first centile' do
-      expect(described_class.centile(percentile(7.749810250859302e-08))).to eq('<1st')
+      expect(described_class.centile(percentile(7.749810250859302e-08))).to eq('below 1st')
     end
 
     it 'renders a computed value that rounds to a hundred as above the ninety-ninth' do
-      expect(described_class.centile(percentile(99.97))).to eq('>99th')
+      expect(described_class.centile(percentile(99.97))).to eq('above 99th')
+    end
+
+    it 'spells every open statement in words, using no comparison symbols' do
+      rendered = [percentile(99.97), percentile(7.7e-08), percentile(97.5, bound: :above),
+                  percentile(3.0, bound: :below)].map { |p| described_class.centile(p) }
+      expect(rendered).to all(match(/\A(above|below) /))
     end
   end
 
+  # The SD is the EFW formula's, and a figure standing in a column of its own
+  # is read as belonging to whatever is next to it — which on the table is the
+  # percentile, whose uncertainty is dominated by the chart's dispersion and is
+  # far wider. So the weight and its SD are one field.
   describe '.weight' do
     it 'rounds to the gram and takes its unit from the estimate' do
-      expect(described_class.weight(estimate(1833.5012))).to eq('1,834 g')
+      expect(described_class.weight(estimate(1833.5012))).to eq('1,834 g ±7.5%')
     end
 
     it 'groups thousands, because four digits of grams are read at a glance' do
-      expect(described_class.weight(estimate(1697.0339))).to eq('1,697 g')
+      expect(described_class.weight(estimate(1697.0339))).to eq('1,697 g ±7.5%')
     end
 
     it 'leaves a three-digit weight ungrouped' do
-      expect(described_class.weight(estimate(763.9463))).to eq('764 g')
+      expect(described_class.weight(estimate(763.9463))).to eq('764 g ±7.5%')
+    end
+
+    it 'attaches the SD to the weight it was published for' do
+      expect(described_class.weight(estimate(1852.3312, sd_pct: 7.4))).to eq('1,852 g ±7.4%')
+    end
+
+    # Absent, not zero, and still stated: INTERGROWTH published a mean absolute
+    # prediction error and no SD. A field that simply stopped after the grams
+    # would read as an SD nobody bothered to print.
+    it 'says a standard published no SD rather than ending the field at the grams' do
+      expect(described_class.weight(estimate(1697.0339, sd_pct: nil))).to eq('1,697 g —')
     end
   end
 

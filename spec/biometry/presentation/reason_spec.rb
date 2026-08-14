@@ -39,11 +39,43 @@ RSpec.describe Biometry::Presentation::Reason do
     end
   end
 
+  # Each adapter reads at its standard's own convention — completed weeks on
+  # the tables, tenth weeks on Hadlock 1991, exact weeks on INTERGROWTH — so
+  # one gestation reaches this function as 41, 41.0 and 41.42857142857143. The
+  # conventions are real and the payload keeps them; the sentence should not
+  # spell the same gestation three ways in one block. Rendering happens here
+  # rather than in the services, so --json still carries the exact value.
   describe 'a gestation outside the window a standard was fitted over' do
     it 'names the standard, its own window and the gestation given' do
       failure = [:out_of_range, { standard: :nichd, ga_weeks: 41, valid_range: [15, 40] }]
       expect(described_class.call(failure))
         .to eq('out of range — nichd covers 15–40 weeks; given 41')
+    end
+
+    it 'renders a whole-numbered gestation without its decimal place' do
+      failure = [:out_of_range, { standard: :hadlock_1991, ga_weeks: 41.0,
+                                  valid_range: [10, 40] }]
+      expect(described_class.call(failure)).to end_with('given 41')
+    end
+
+    it 'keeps a fractional gestation, to the tenth of a week' do
+      failure = [:out_of_range, { standard: :intergrowth21, ga_weeks: 41.42857142857143,
+                                  valid_range: [22, 40] }]
+      expect(described_class.call(failure)).to end_with('given 41.4')
+    end
+
+    it 'spells one gestation one way, whatever convention each standard read it in' do
+      given = [41, 41.0, 41.4, 41.42857142857143].map do |weeks|
+        described_class.call([:out_of_range,
+                              { standard: :who, ga_weeks: weeks, valid_range: [14, 40] }])
+      end
+      expect(given.map { |text| text[/given .*\z/] }.uniq).to eq(['given 41', 'given 41.4'])
+    end
+
+    it 'renders the window the same way, so 22.0 is not a different bound to 22' do
+      failure = [:out_of_range, { standard: :intergrowth21, ga_weeks: 41.0,
+                                  valid_range: [22.0, 40.0] }]
+      expect(described_class.call(failure)).to include('covers 22–40 weeks')
     end
 
     # Dating has no upper bound: a reference date before the LMP is the only
