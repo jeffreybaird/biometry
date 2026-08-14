@@ -70,5 +70,13 @@ RSpec.describe Biometry::CLI::Main do
       cli.call(['--help'])
       expect(stdout.string).to include('report')
     end
+
+    # The flags are explained one level down. The top level is where a reader
+    # arrives, so it has to say where the explanation is rather than listing
+    # the flag names twice and letting the two lists drift.
+    it 'points at the subcommand help, where the flags are explained' do
+      cli.call(['--help'])
+      expect(stdout.string).to include('report --help')
+    end
   end
 end

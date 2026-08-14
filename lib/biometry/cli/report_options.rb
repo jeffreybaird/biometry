@@ -82,8 +82,11 @@ module Biometry
         raise UsageError, "could not read #{value.inspect} as a date for #{option}"
       end
 
+      # Decimals allowed: scanners report millimetres to one decimal place, and
+      # rejecting 274.5 would make the caller round before the library does,
+      # which is a rounding nobody recorded.
       def millimetres(value, option)
-        whole(value, option) ||
+        Float(value, exception: false) ||
           raise(UsageError, "#{option} wanted a measurement in millimetres, got #{value.inspect}")
       end
 

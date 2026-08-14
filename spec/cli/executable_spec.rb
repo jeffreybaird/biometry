@@ -64,6 +64,24 @@ RSpec.describe 'the biometry executable' do
       expect(stderr).to be_empty
     end
 
+    # The subcommand's help is the documentation this library ships, so it
+    # travels the same contract as any other result: stdout, exit 0, a quiet
+    # stderr — and it explains the flags rather than merely listing them.
+    it 'documents the flags when asked for the subcommand help' do
+      stdout, stderr, status = run('report', '--help')
+      expect(status.exitstatus).to eq(0)
+      expect(stdout).to match(/abdominal circumference/i)
+      expect(stderr).to be_empty
+    end
+
+    it 'accepts a millimetre reported to one decimal place' do
+      stdout, stderr, status = run('report', '--at', '2026-08-13', '--ga', '32w0d',
+                                   '--hc', '291', '--fl', '62', '--ac', '274.5')
+      expect(status.exitstatus).to eq(0)
+      expect(stdout).to include('AC 27.45')
+      expect(stderr).to be_empty
+    end
+
     it 'exits 2 on a usage error, with no stack trace on stdout' do
       stdout, stderr, status = run('report', '--ac', '274')
       expect(status.exitstatus).to eq(2)

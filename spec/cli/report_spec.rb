@@ -283,6 +283,23 @@ RSpec.describe 'the biometry report command' do
     end
   end
 
+  # Scanners report a millimetre to one decimal place. A value refused for its
+  # decimal is one the user rounds by hand before the formula ever sees it, and
+  # the rounding then happens where nothing records that it happened.
+  context 'when a measurement carries a decimal' do
+    it 'exits 0, prints the report on stdout and says nothing on stderr' do
+      status, out, err = call(base(ac: '274.5'))
+      expect(status).to eq(0)
+      expect(out).to include('NICHD (white)')
+      expect(err).to be_empty
+    end
+
+    it 'prints the centimetres the decimal converts to' do
+      _, out, = call(base(ac: '274.5'))
+      expect(out).to include('AC 27.45')
+    end
+  end
+
   context 'when a measurement is not a number' do
     it 'exits 2 rather than weighing a fetus from a typo' do
       status, out, err = call(base(ac: 'abc'))

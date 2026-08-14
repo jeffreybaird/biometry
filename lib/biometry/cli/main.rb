@@ -17,9 +17,9 @@ module Biometry
         Usage: biometry <command> [options]
 
         Commands:
-          report --ga 32w0d [--bpd|--hc|--ac|--fl MM] [--lmp DATE] [--cycle N]
-                 [--transfer DATE] [--embryo-day N] [--sex SEX] [--stratum S]
-                 [--at DATE] [--json]
+          report    Estimated fetal weight and growth percentiles across the
+                    competing standards, and where they disagree.
+                    See `biometry report --help` for every option.
 
         Options:
           -h, --help       Print this message

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'growth_rows'
+require_relative 'report_help'
 require_relative 'report_options'
 
 module Biometry
@@ -20,8 +21,17 @@ module Biometry
         @stderr = stderr
       end
 
+      HELP_FLAGS = %w[--help -h help].freeze
+
+      # Help is answered before OptionParser sees argv. Its own officious
+      # --help writes to the process's real $stdout and calls exit, which
+      # bypasses the injected stream and would take a test runner down with
+      # it.
       def call(argv)
-        options = ReportOptions.parse(argv.drop(1))
+        rest = argv.drop(1)
+        return help if rest.any? { |argument| HELP_FLAGS.include?(argument) }
+
+        options = ReportOptions.parse(rest)
         dating, growth = compose(options)
         stdout.puts(render(dating, growth, options))
         reportable?(dating, growth) ? Main::EXIT_OK : Main::EXIT_FAILURE
@@ -33,6 +43,11 @@ module Biometry
       private
 
       attr_reader :stdout, :stderr
+
+      def help
+        stdout.puts(ReportHelp::TEXT)
+        Main::EXIT_OK
+      end
 
       def compose(options)
         [dating_for(options), rows_for(options)]

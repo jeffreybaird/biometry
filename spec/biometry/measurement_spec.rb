@@ -7,6 +7,13 @@ RSpec.describe Biometry::Measurement do
     expect(measurement.mm).to eq(305)
   end
 
+  # Millimetres are Numeric, not Integer: scanners report to one decimal place
+  # and a measurement rounded on the way in loses precision the formula was
+  # going to use.
+  it 'keeps a fractional millimetre, because that is what a scanner reports' do
+    expect(described_class.new(kind: :ac, mm: 274.5).mm).to eq(274.5)
+  end
+
   describe '#cm' do
     it 'converts to the centimetres every published formula wants' do
       expect(measurement.cm).to eq(30.5)
@@ -14,6 +21,10 @@ RSpec.describe Biometry::Measurement do
 
     it 'returns a Float, so an odd millimetre does not truncate' do
       expect(described_class.new(kind: :ac, mm: 305).cm).to be_a(Float)
+    end
+
+    it 'carries a fractional millimetre through to centimetres' do
+      expect(described_class.new(kind: :ac, mm: 274.5).cm).to eq(27.45)
     end
   end
 
