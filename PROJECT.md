@@ -932,18 +932,68 @@ as one narrative text OBX rather than discrete observations. Return
 `Failure([:insufficient_data, ...])` naming that case rather than attempting to
 scrape numbers out of prose.
 
+### Pinned before spec-writer — decided 2026-08-14
+
+**The LOINC mapping is injected, and `data/` does not yet hold one.** OBX-3
+identifiers must map to measurement kinds, and no such mapping is transcribed.
+A transposed code maps HC onto AC silently and produces a plausible wrong
+weight, which is the exact failure the never-recall rule exists to prevent, so
+none is supplied from memory.
+
+The parser therefore takes the mapping as an argument, as every service takes
+its manifest. Specs supply their own, so nothing is asserted against a code
+nobody sourced. `data/loinc.yml` is a transcription for later.
+
+**Until that file exists, `--hl7` refuses.** A message that parses cleanly but
+yields no measurements, because nothing could be recognised, must not render as
+a report with an empty growth table — that reads as a fetus with no biometry
+rather than as a library missing a lookup. The refusal names what is missing.
+
+**The parser takes message contents, never a path.** Reading the file is
+`cli/`'s job, as everywhere.
+
+**Timestamps truncate to dates, at this boundary and only here.** HL7 carries
+`YYYYMMDDHHMMSS` and this library has no times and no zones. Slice 1 refuses a
+`DateTime` rather than truncating it, because there the caller chose to pass
+one; here the format is the source's and truncation is the conversion the shell
+exists to perform. It happens once, on the way in.
+
+**One `Scan` per OBR.** OBX segments belong to the OBR they follow, and that
+grouping is what distinguishes two scans in one message from one scan with
+twice the observations.
+
+**The result carries its diagnostics.** Unrecognised identifiers and malformed
+segments are collected and returned alongside the scans, never dropped and
+never raised:
+
+```ruby
+Hl7::Ingest = Data.define(:scans, :unrecognised, :malformed)
+```
+
+A malformed segment names its index and the field position that failed, and
+parsing continues — one bad segment in a message is not a reason to discard the
+rest of it.
+
+**Units are converted, never assumed.** OBX-6 says `mm` or `cm`; anything else
+is reported as unrecognised rather than guessed at. A unit-less number is not
+silently taken as millimetres.
+
+**Guard precedence**, as everywhere: message-level validity, then the narrative
+case, then per-segment handling. A message that is not an ORU^R01 at all is
+refused before its OBX segments are examined.
+
 ---
 
 ## Sequence
 
 ```
-0. scaffolding + shared types + loader     done, committed
-1. gestational age                         in progress; CRL/biometry deferred
-2. redating                                in progress; fixtures are its only guard
+0. scaffolding + shared types + loader     done
+1. gestational age                         done; CRL and biometry deferred
+2. redating                                done; its own fixtures are its only guard
 3. EFW                                     done; all 5 formulas offered
-4. percentiles                             unblocked; fan-out candidate
-5. presentation                            depends on 1, 3 and 4
-6. HL7                                     independent; do last
+4. percentiles                             done; four adapters, one interpolation rule
+5. presentation                            done; table and --json
+6. HL7                                     in progress; LOINC mapping deferred
 ```
 
 Slice 3 is done and slice 4 is unblocked: every formula the four charts pair
