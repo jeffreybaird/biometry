@@ -67,7 +67,7 @@ module Biometry
           days = (reference_date - start).to_i
           return out_of_range(days) if days.negative?
 
-          Success(estimate(start + TERM_DAYS, days, reference_date))
+          Success(estimate(start + TERM_DAYS, days, reference_date, cycle_length))
         end
 
         def out_of_range(days)
@@ -75,10 +75,13 @@ module Biometry
                                     valid_range: [0, nil] }])
         end
 
-        def estimate(edd, days, reference_date)
+        # The cycle length reported is the one actually used, not the assumed
+        # default, so a reader can tell a corrected date from an uncorrected
+        # one without knowing what was requested.
+        def estimate(edd, days, reference_date, cycle_length)
           DatingEstimate.new(edd: edd, ga: GestationalAge.new(days: days),
                              reference_date: reference_date, derivation: DERIVATION,
-                             source: provenance)
+                             parameters: { cycle_length: cycle_length }, source: provenance)
         end
 
         def provenance

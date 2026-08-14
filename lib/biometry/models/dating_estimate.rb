@@ -16,7 +16,11 @@ module Biometry
   # The member is `derivation`, never `method`: Data.define(:method) shadows
   # Object#method and breaks every reflective caller. Estimate and Percentile
   # carry the same regression test for the same reason.
-  DatingEstimate = Data.define(:edd, :ga, :reference_date, :derivation, :source) do
+  # `parameters` carries the assumption the derivation ran on —
+  # `{ cycle_length: 28 }` or `{ embryo_day: 5 }`. A 35-day cycle moves the EDD
+  # by a week, so a due date reported without it is incomplete for the same
+  # reason one reported without its reference date is.
+  DatingEstimate = Data.define(:edd, :ga, :reference_date, :derivation, :parameters, :source) do
     def to_s
       "EDD #{edd} — #{ga} at #{reference_date} (by #{derivation})"
     end

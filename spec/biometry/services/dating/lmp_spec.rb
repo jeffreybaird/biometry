@@ -53,6 +53,13 @@ RSpec.describe Biometry::Services::Dating::Lmp do
       expect(dating.derivation).to eq(:lmp)
     end
 
+    # The assumption travels with the estimate rather than staying in the
+    # caller's arguments: a due date read without the cycle behind it cannot
+    # be told from one derived on a cycle the patient does not have.
+    it 'names the cycle length it assumed, rather than leaving it implicit' do
+      expect(dating.parameters).to eq(cycle_length: 28)
+    end
+
     it 'returns dates, never times, so nothing carries a zone' do
       expect(dating.edd).to be_an_instance_of(Date)
     end
@@ -72,6 +79,10 @@ RSpec.describe Biometry::Services::Dating::Lmp do
 
     it 'reports the same due date at 28 as an uncorrected Naegele estimate' do
       expect(call(cycle_length: 28).value!.edd).to eq(lmp + 280)
+    end
+
+    it 'reports the cycle it actually corrected for, not the assumed one' do
+      expect(call(cycle_length: 35).value!.parameters).to eq(cycle_length: 35)
     end
 
     # The trap: a 35-day cycle means ovulation was a week later, so the

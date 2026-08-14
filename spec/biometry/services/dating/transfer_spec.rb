@@ -57,6 +57,13 @@ RSpec.describe Biometry::Services::Dating::Transfer do
       expect(dating.derivation).to eq(:transfer)
     end
 
+    # A day-5 blastocyst read as a day-3 cleavage embryo is a two-day error,
+    # so the embryo day travels with the estimate rather than being left in
+    # the caller's arguments.
+    it 'names the embryo day it counted from' do
+      expect(dating.parameters).to eq(embryo_day: 5)
+    end
+
     it 'returns dates, never times, so nothing carries a zone' do
       expect(dating.edd).to be_an_instance_of(Date)
     end
@@ -73,6 +80,23 @@ RSpec.describe Biometry::Services::Dating::Transfer do
 
     it 'reports an age two days younger than the blastocyst at the same date' do
       expect(ga_on(Date.new(2026, 8, 13), embryo_day: 3).days).to eq(dating.ga.days - 2)
+    end
+
+    it 'names that embryo day rather than the one it did not count from' do
+      expect(call(embryo_day: 3).value!.parameters).to eq(embryo_day: 3)
+    end
+  end
+
+  # Day zero is fertilisation itself and it is a real transfer day, so it must
+  # be reported rather than dropped for looking like an absent value.
+  context 'when the embryo was transferred on day zero' do
+    it 'names day zero as the day it counted from' do
+      expect(call(embryo_day: 0).value!.parameters).to eq(embryo_day: 0)
+    end
+
+    it 'reports the assumption whatever the caller supplied' do
+      days = (0..3).map { |day| call(embryo_day: day).value!.parameters[:embryo_day] }
+      expect(days).to eq([0, 1, 2, 3])
     end
   end
 

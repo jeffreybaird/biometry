@@ -67,7 +67,7 @@ module Biometry
           days = (reference_date - start).to_i
           return out_of_range(days) if days.negative?
 
-          Success(estimate(start + TERM_DAYS, days, reference_date))
+          Success(estimate(start + TERM_DAYS, days, reference_date, embryo_day))
         end
 
         def out_of_range(days)
@@ -75,10 +75,10 @@ module Biometry
                                     valid_range: [0, nil] }])
         end
 
-        def estimate(edd, days, reference_date)
+        def estimate(edd, days, reference_date, embryo_day)
           DatingEstimate.new(edd: edd, ga: GestationalAge.new(days: days),
                              reference_date: reference_date, derivation: DERIVATION,
-                             source: provenance)
+                             parameters: { embryo_day: embryo_day }, source: provenance)
         end
 
         def provenance

@@ -14,7 +14,8 @@ RSpec.describe Biometry::DatingEstimate do
   subject(:dating) do
     described_class.new(edd: Date.new(2026, 10, 8), ga: ga,
                         reference_date: Date.new(2026, 8, 13),
-                        derivation: :lmp, source: provenance)
+                        derivation: :lmp, parameters: { cycle_length: 28 },
+                        source: provenance)
   end
 
   let(:ga) { Biometry::GestationalAge.from(weeks: 32) }
@@ -44,6 +45,29 @@ RSpec.describe Biometry::DatingEstimate do
 
   it 'names the derivation that produced it' do
     expect(dating.derivation).to eq(:lmp)
+  end
+
+  # The assumption the derivation ran on, for the same reason `reference_date`
+  # is here: a 35-day cycle moves the due date by a week, so an EDD printed
+  # without the cycle behind it is not a report, and a reader of the output
+  # alone should not have to reconstruct it from their own input.
+  describe '#parameters' do
+    it 'carries the convention the derivation applied' do
+      expect(dating.parameters).to eq(cycle_length: 28)
+    end
+
+    it 'names a different parameter for a different derivation' do
+      other = dating.with(derivation: :transfer, parameters: { embryo_day: 5 })
+      expect(other.parameters).to eq(embryo_day: 5)
+    end
+
+    it 'survives #with, so a re-derived estimate keeps its assumption' do
+      expect(dating.with(edd: Date.new(2026, 10, 15)).parameters).to eq(cycle_length: 28)
+    end
+
+    it 'leaves the rest of the estimate alone when only the assumption changes' do
+      expect(dating.with(parameters: { cycle_length: 35 }).edd).to eq(dating.edd)
+    end
   end
 
   it 'names the convention it applied through its provenance' do
