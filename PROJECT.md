@@ -539,10 +539,85 @@ Two rules that are clinical rather than arithmetic:
 2. An established EDD is not mutated. Subsequent scans are measured against
    it; the service returns a recommendation with reasoning.
 
-Return a decision object: `redate?`, discrepancy in days, the threshold that
-applied, the band, and any caveat attaching to that band. Also report boundary
-sensitivity when the indexing GA sits within a few days of a band edge and the
-answer would flip on the other side.
+Return a decision object: the recommendation, discrepancy in days, the
+threshold that applied, the band, and any caveat attaching to that band. Also
+report boundary sensitivity when the indexing GA sits within a few days of a
+band edge and the answer would flip on the other side.
+
+### Pinned before spec-writer — decided 2026-08-13
+
+**The recommendation is tri-state**, not a boolean: `:redate`, `:keep` or
+`:discretionary`. A boolean cannot carry the zone, and `if decision.redate?`
+would silently discard exactly the case the guideline most wants a human to
+look at.
+
+**The discretionary zone changes the answer**, it does not annotate it. In
+`biometry_22_27` the zone is 10–14 days and `threshold_days` is also 14, so:
+
+```
+discrepancy <  from_days (10)          -> :keep
+from_days <= discrepancy <= to_days    -> :discretionary
+discrepancy >  threshold_days (14)     -> :redate
+```
+
+Without the zone a 12-day discrepancy reads `:keep` on the bare threshold. That
+is the window the zone exists for.
+
+**`threshold_days` is exclusive** everywhere: redate when the discrepancy is
+strictly greater. Discrepancy is `|proposed EDD − established EDD|` in whole
+days.
+
+**The band is indexed on the established GA**, per `band_indexed_on` in the
+manifest — not on the ultrasound estimate, and not on whatever `--ga` the
+caller typed for the growth charts. Derive it from the established EDD and the
+reference date rather than accepting it separately, so the two cannot disagree:
+
+```
+indexing GA in days = 280 - (established EDD - reference date)
+```
+
+**IVF short-circuits before any band is selected.** A pregnancy dated by
+transfer, retrieval or a known conception date is never redated by ultrasound,
+so the decision is `:keep` with the rule named and no band, no threshold and no
+zone — those fields are absent rather than filled in with values that played no
+part.
+
+**Guard precedence**, as everywhere: input validity, then the IVF rule, then
+band selection. The rule outranks the band because a band's threshold is an
+answer to a question IVF dating never asks.
+
+**Boundary sensitivity** is reported when the indexing GA is within 3 days of a
+band edge *and* the recommendation would differ in the adjacent band. Both
+conditions, per `rules.boundary_sensitivity` — proximity alone is not a finding.
+
+**The established EDD is never mutated.** The service returns a recommendation
+with reasoning; nothing writes a date back.
+
+### The no-classification rule, narrowed
+
+`caveats.third_trimester` reads "risks masking growth restriction", and slice
+5's report is asserted to contain no `/restrict\w*/i` anywhere on the page. Two
+rules of this project collided.
+
+**The prohibition is on classifying the pregnancy in front of you** — emitting
+SGA, IUGR, macrosomia, restricted or normal as a verdict on this fetus, in a
+value or in a row. A caveat quoted from the guideline, warning what redating
+*risks*, labels nobody. It prints verbatim.
+
+Slice 5's page-wide assertion narrows to the rows and values. The caveat block
+is exempt because it is quoted source text, not a finding this library
+produced. `CLAUDE.md` still states the rule in its absolute form and should be
+brought into line.
+
+### Wired into the report command
+
+    biometry report --ga 32w0d --established-edd 2026-10-08 \
+                    --established-by lmp --scan-edd 2026-10-20
+
+`--established-by` names how the established date was arrived at, and is what
+triggers the IVF rule; `transfer` is the IVF case. The Redating section prints
+the recommendation, the discrepancy against its threshold, the band, and any
+zone, caveat or boundary sensitivity that applies.
 
 ---
 
@@ -848,7 +923,7 @@ scrape numbers out of prose.
 ```
 0. scaffolding + shared types + loader     done, committed
 1. gestational age                         in progress; CRL/biometry deferred
-2. redating                                ready; acog_redating.yml verified 2026-08-13
+2. redating                                in progress; fixtures are its only guard
 3. EFW                                     done; all 5 formulas offered
 4. percentiles                             unblocked; fan-out candidate
 5. presentation                            depends on 1, 3 and 4
