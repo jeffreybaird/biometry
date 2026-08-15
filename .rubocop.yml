@@ -9,6 +9,12 @@ AllCops:
     - 'vendor/**/*'
     - 'tmp/**/*'
     - 'bin/**/*'            # binstubs, not yours
+    # FetalGPS port and fixture generators: kept byte-faithful to the traced
+    # R/VBA source, provenance only, never run by the suite. Not linted so a
+    # style pass cannot drift them from the source they document.
+    - 'scripts/fetalgps.rb'
+    - 'scripts/generate_oracle.rb'
+    - 'scripts/generate_published.rb'
 
 # ---------------------------------------------------------------- Metrics ---
 # Small methods are the point, but a literal shouldn't eat the budget.
@@ -101,10 +107,14 @@ RSpec/MultipleMemoizedHelpers:
 RSpec/DescribeClass:
   Exclude:
     - 'spec/cli/**/*'       # end-to-end command specs describe behavior
+    - 'spec/fixtures/**/*'  # CSV-driven fixture runners describe a file
+    - 'spec/oracle/**/*'
 
 RSpec/SpecFilePathFormat:
   Exclude:
     - 'spec/cli/**/*'
+    - 'spec/fixtures/**/*'
+    - 'spec/oracle/**/*'
 
 # ------------------------------------------------------------------- Noise ---
 
