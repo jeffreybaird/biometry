@@ -144,9 +144,16 @@ table over the abstract. Subject of an active 2025 AJOG exchange.
 ### Not yet fixtured, but decided
 
 - **Out-of-range**: we return `:out_of_range`; both FetalGPS versions answer.
-- **Out-of-centile-band**: we should decide clamp vs extrapolate vs
-  `:out_of_range` explicitly. The two FetalGPS implementations differ, so there
-  is no convention to inherit.
+- **Out-of-centile-band** (decided 2026-08-15): we report the outermost
+  published centile as a bound — `Percentile` with `bound: :above`/`:below`
+  and the edge column's value, read as "above the 95th" — and never
+  extrapolate past what the source printed. The two FetalGPS implementations
+  differ here (VBA clamps, R extrapolates), so there was no convention to
+  inherit. The four oracle rows this touches (WHO female chart at 22 weeks
+  publishes only the 5th–95th columns; the +3% perturbation pushes that EFW
+  above the 95th's 557 g) carry `compare_who: 0` in `oracle_charts.csv` and
+  are skipped by the tier 3b runner, whose load-time guard expects the
+  resulting sums (500/504/504) exactly.
 - **Formula/chart pairing**: enforced by us, absent in FetalGPS.
 
 ---

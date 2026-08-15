@@ -173,6 +173,9 @@ FMF 20-43. We return `:out_of_range` where they answer.
    The two FetalGPS implementations differ, so nothing to inherit. Recommend
    `:out_of_range` — "below the 3rd" is honest and an extrapolation off the end
    of a table is a number nobody published.
+   *Resolved 2026-08-15: report the outermost published centile as a bound
+   ("above the 95th"), never extrapolate. Out-of-band oracle rows are excluded
+   from comparison. See FIXTURES.md, tier 4.*
 2. **Interpolation between weeks** for NICHD and WHO. FetalGPS floors GA to the
    completed week. If we do the same, `32w0d` and `32w6d` return identical
    percentiles, which the oracle vectors will show.
