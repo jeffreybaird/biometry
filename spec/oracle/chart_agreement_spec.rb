@@ -19,13 +19,23 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
                        headers: true)
   end
 
-  # Load-time drift guard: every row must carry all three compare flags. If
-  # these sums are wrong the CSV and this spec have drifted apart, and every
-  # downstream mismatch would be noise — fail here instead.
-  %w[compare_who compare_nichd compare_intergrowth].each do |flag|
-    total = rows.sum { |row| row[flag].to_i }
-    raise "oracle_charts.csv drift: #{flag} sums to #{total}, expected 504" unless total == 504
-  end
+  # Load-time drift guard: each flag must sum to exactly what we expect. If a
+  # sum is wrong the CSV and this spec have drifted apart, and every downstream
+  # mismatch would be noise — fail here instead.
+  #
+  # WHO is 4 short of the other two, and that deficit is the out-of-band
+  # exclusion, not an omission. The WHO female chart at 22w publishes only the
+  # 5th–95th columns; those four rows' EFW of 560.1 g sits above the 95th's
+  # 557 g, where FetalGPSX clamps and FetalGPSR extrapolates, so there is no
+  # single FetalGPS answer to agree with. We report "above the 95th" and skip
+  # the comparison. See docs/FIXTURES.md.
+  { 'compare_who' => 500, 'compare_nichd' => 504, 'compare_intergrowth' => 504 }
+    .each do |flag, expected|
+      total = rows.sum { |row| row[flag].to_i }
+      next if total == expected
+
+      raise "oracle_charts.csv drift: #{flag} sums to #{total}, expected #{expected}"
+    end
 
   def self.manifest(name)
     Biometry::ReferenceData.load_manifest(Biometry::DATA_ROOT / "#{name}.yml").first
@@ -94,13 +104,22 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
   rows.each_with_index do |row, index|
     description = "row #{index + 2} (#{row['ga_days']}d, #{row['sex']}, #{row['race']})"
 
-    it "#{description}: WHO reads #{row['fgps_who']}" do
-      expect(who_centile(row)).to be_within(tolerance).of(row['fgps_who'].to_f)
+    # A flag of 0 generates no example at all rather than a skip: there is
+    # nothing pending about a comparison we have decided not to make, and the
+    # row's note in the CSV records why.
+    if row['compare_who'] == '1'
+      it "#{description}: WHO reads #{row['fgps_who']}" do
+        expect(who_centile(row)).to be_within(tolerance).of(row['fgps_who'].to_f)
+      end
     end
 
-    it "#{description}: NICHD #{row['race']} reads #{row['fgps_nichd']}" do
-      expect(nichd_centile(row)).to be_within(tolerance).of(row['fgps_nichd'].to_f)
+    if row['compare_nichd'] == '1'
+      it "#{description}: NICHD #{row['race']} reads #{row['fgps_nichd']}" do
+        expect(nichd_centile(row)).to be_within(tolerance).of(row['fgps_nichd'].to_f)
+      end
     end
+
+    next unless row['compare_intergrowth'] == '1'
 
     it "#{description}: INTERGROWTH reads #{row['fgps_intergrowth']}" do
       expect(intergrowth_centile(row)).to be_within(tolerance).of(row['fgps_intergrowth'].to_f)

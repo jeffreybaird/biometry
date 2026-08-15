@@ -42,6 +42,38 @@ SCALES  = [0.97, 1.00, 1.03].freeze
 RACES   = %w[white black hispanic asian].freeze
 SEXES   = ["female", "male", ""].freeze
 
+# Outermost published weight per chart row. Outside that band the two FetalGPS
+# implementations disagree with *each other* — FetalGPSX clamps to the edge,
+# FetalGPSR extrapolates a line through the outermost two centiles — so there
+# is no single FetalGPS answer to compare against. Rows whose EFW falls
+# outside a chart's band carry compare_* = 0 and the runner skips them.
+# (The +/-3% perturbation keeps most rows inside; the WHO sex-specific charts
+# publish only the 5th-95th columns at some weeks, so their band is narrower
+# than the combined chart's and a few rows escape it.)
+def band(path, key_cols, value_cols)
+  CSV.read(path, headers: true).each_with_object({}) do |r, h|
+    values = value_cols.filter_map { |c| r[c].to_f unless r[c].to_s.empty? }
+    h[key_cols.map { |k| r[k] }] = [values.min, values.max]
+  end
+end
+
+WHO_BAND   = band(File.join(ROOT, "data/percentiles/who.csv"), %w[sex ga_weeks], FetalGPS::WHO_KEYS)
+NICHD_BAND = band(File.join(ROOT, "data/percentiles/nichd.csv"), %w[group ga_weeks], FetalGPS::NICHD_KEYS)
+
+def in_band?(bands, key, efw)
+  lo, hi = bands.fetch(key, [nil, nil])
+  !lo.nil? && efw.between?(lo, hi)
+end
+
+BASE_NOTE = "three-parameter formula; matches what WHO, NICHD and INTERGROWTH pair with"
+
+def note_for(excluded)
+  return BASE_NOTE if excluded.empty?
+
+  "#{BASE_NOTE}; #{excluded.join(' and ')} comparison excluded: EFW outside the " \
+    "tabulated centile band, where FetalGPSX and FetalGPSR disagree with each other"
+end
+
 def biometry(ga_weeks, scale)
   keys = MEDIAN.keys
   lo = keys.select { |k| k <= ga_weeks }.max || keys.first
@@ -85,13 +117,21 @@ GA_DAYS.each do |gad|
                         fl_mm: fl, sex: sex, race: race)
       next if r[:who].nil? || r[:nichd].nil?
 
+      who_chart = %w[male female].include?(sex) ? sex : "combined"
+      floor_ga = (gad / 7).to_s
+      cmp_who = in_band?(WHO_BAND, [who_chart, floor_ga], r[:efw_g]) ? 1 : 0
+      cmp_nichd = in_band?(NICHD_BAND, [race, floor_ga], r[:efw_g]) ? 1 : 0
+      excluded = []
+      excluded << "WHO" if cmp_who.zero?
+      excluded << "NICHD" if cmp_nichd.zero?
+
       chart_rows << {
         case: "no_bpd", ga_days: gad, ac_mm: ac, hc_mm: hc, fl_mm: fl, bpd_mm: nil,
         sex: sex.empty? ? "combined" : sex, race: race,
         fgps_efw_g: r[:efw_g], fgps_who: r[:who], fgps_nichd: r[:nichd],
         fgps_intergrowth: r[:intergrowth21],
-        compare_who: 1, compare_nichd: 1, compare_intergrowth: 1,
-        note: "hadlock chart excluded: FetalGPS uses SD 12.7%, we use 13.3% (tier 4)"
+        compare_who: cmp_who, compare_nichd: cmp_nichd, compare_intergrowth: 1,
+        note: note_for(excluded)
       }
     end
   end
