@@ -60,7 +60,7 @@ RSpec.describe 'the biometry executable' do
     it 'puts a parseable document and nothing else on stdout with --json' do
       stdout, stderr, status = report('--json')
       expect(status.exitstatus).to eq(0)
-      expect(JSON.parse(stdout)['growth'].length).to eq(7)
+      expect(JSON.parse(stdout)['studies'].first['growth'].length).to eq(7)
       expect(stderr).to be_empty
     end
 

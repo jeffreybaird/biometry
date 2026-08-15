@@ -24,10 +24,15 @@ RSpec.describe Biometry::Presentation::Report do
   # date flags must read exactly as it did before slice 2 existed.
   let(:redating) { nil }
 
+  # A report carries one study per scan it was given. Everything below this
+  # line describes the single-study report, which is what the four measurement
+  # flags produce and what this file has always asserted; the several-study
+  # case is in studies_spec.rb.
   def render(tty: false, **arguments)
-    described_class.new(tty: tty).call(dating: dating, ga: ga, scan: scan, growth: growth,
-                                       **arguments)
+    described_class.new(tty: tty).call(dating: dating, ga: ga, studies: [study], **arguments)
   end
+
+  def study = Biometry::Study.new(scan: scan, ga: ga, growth: growth)
 
   def plain(text) = text.gsub(/\e\[[0-9;]*m/, '')
 

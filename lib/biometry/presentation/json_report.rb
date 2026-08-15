@@ -22,19 +22,30 @@ module Biometry
       # `redating` is optional, and absent rather than null when nobody asked:
       # a key holding null reads as a question that was asked and could not be
       # answered.
-      def call(dating:, ga:, scan:, growth:, redating: nil)
-        document = sections(dating, ga, scan, growth)
+      def call(dating:, ga:, studies:, redating: nil)
+        rows = studies.flat_map(&:growth)
+        document = sections(dating, ga, studies)
         document[:redating] = redated(redating) if redating
-        JSON.generate(document.merge(sources: citations(growth, redating), notes: NOTES))
+        JSON.generate(document.merge(sources: citations(rows, redating), notes: NOTES))
       end
 
       private
 
-      def sections(dating, ga, scan, growth)
+      # The measurements and the rows sit inside the study they were read from.
+      # The collection is present whether there is one study or several: a
+      # consumer that had to branch on the document's shape would get it wrong
+      # the first time two studies arrived.
+      def sections(dating, ga, studies)
         { gestational_age: { text: ga.to_s, days: ga.days },
-          measurements: scan.measurements.map { |m| measurement(m) },
           dating: dating.map { |derivation, result| dated(derivation, result) },
-          growth: growth.map { |row| growth_row(row) } }
+          studies: studies.map { |study| studied(study) } }
+      end
+
+      def studied(study)
+        { date: study.date.iso8601,
+          gestational_age: { text: study.ga.to_s, days: study.ga.days },
+          measurements: study.scan.measurements.map { |m| measurement(m) },
+          growth: study.growth.map { |row| growth_row(row) } }
       end
 
       def measurement(measurement)

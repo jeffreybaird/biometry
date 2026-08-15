@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative 'growth_rows'
+require_relative 'message_source'
+require_relative 'studies'
 require_relative 'report_help'
 require_relative 'report_options'
 
@@ -16,9 +18,14 @@ module Biometry
       MANIFESTS = %i[acog_redating hadlock_1985 hadlock_1991 intergrowth21 nichd who].freeze
       TABLES = %i[nichd who].freeze
 
-      def initialize(stdout:, stderr:)
+      # `loinc` maps OBX-3 identifiers to measurement kinds. It defaults to the
+      # transcription in data/, which does not exist yet — injecting it is what
+      # lets the message path be exercised before that file lands, without a
+      # spec asserting against a code nobody verified.
+      def initialize(stdout:, stderr:, loinc: nil)
         @stdout = stdout
         @stderr = stderr
+        @loinc = loinc || transcribed_loinc
       end
 
       HELP_FLAGS = %w[--help -h help].freeze
@@ -27,14 +34,14 @@ module Biometry
       # --help writes to the process's real $stdout and calls exit, which
       # bypasses the injected stream and would take a test runner down with
       # it.
+      LOINC = 'loinc.yml'
+
       def call(argv)
         rest = argv.drop(1)
         return help if rest.any? { |argument| HELP_FLAGS.include?(argument) }
 
         options = ReportOptions.parse(rest)
-        dating, growth = compose(options)
-        stdout.puts(render(dating, growth, options))
-        reportable?(dating, growth) ? Main::EXIT_OK : Main::EXIT_FAILURE
+        refuse_hl7(options) || measured(options)
       rescue UsageError, OptionParser::ParseError => e
         stderr.puts("biometry report: #{e.message}")
         Main::EXIT_USAGE
@@ -42,15 +49,69 @@ module Biometry
 
       private
 
-      attr_reader :stdout, :stderr
+      attr_reader :stdout, :stderr, :loinc
+
+      # Where the biometry comes from: a message, or the four flags. A message
+      # that could not be read refuses rather than falling back to the flags —
+      # the caller asked about this scan, and answering about a different one
+      # silently is worse than answering about none.
+      def measured(options)
+        return produce(options, [scan_of(options)]) unless options[:hl7]
+
+        source = MessageSource.new(loinc: loinc, stderr: stderr)
+        source.call(options[:hl7]).either(
+          ->(scans) { produce(options, scans) },
+          ->(failure) { refuse(Presentation::Reason.call(failure)) }
+        )
+      end
+
+      def refuse(message)
+        stderr.puts("biometry report: #{message}")
+        Main::EXIT_FAILURE
+      end
 
       def help
         stdout.puts(ReportHelp::TEXT)
         Main::EXIT_OK
       end
 
-      def compose(options)
-        [dating_for(options), rows_for(options)]
+      # A mistyped path is reported as a mistyped path, ahead of a mapping the
+      # caller was never going to need. Then the mapping itself: with none, a
+      # message that parses perfectly still yields nothing this library can
+      # name, and a report with an empty growth table reads as a fetus nobody
+      # measured rather than as a lookup nobody transcribed. Exit 1, not 2 —
+      # the invocation was well formed and the gap is ours.
+      def refuse_hl7(options)
+        path = options[:hl7]
+        return nil unless path
+        return usage("no such message: #{path}") unless File.exist?(path)
+        return nil if loinc
+
+        stderr.puts("biometry report: --hl7 needs a LOINC mapping, and data/#{LOINC} " \
+                    'has not been transcribed or wired in. Until it is, no OBX identifier ' \
+                    'can be named, so no measurement can be read from a message. Supply ' \
+                    "#{flags} yourself in the meantime.")
+        Main::EXIT_FAILURE
+      end
+
+      def usage(message)
+        stderr.puts("biometry report: #{message}")
+        Main::EXIT_USAGE
+      end
+
+      def flags = ReportOptions::MEASUREMENTS.map { |kind| "--#{kind}" }.join(', ')
+
+      def produce(options, scans)
+        dating = dating_for(options)
+        studies = studied(scans, options)
+        stdout.puts(render(dating, studies, options))
+        reportable?(dating, studies) ? Main::EXIT_OK : Main::EXIT_FAILURE
+      end
+
+      def studied(scans, options)
+        rows = GrowthRows.new(manifests: manifests, tables: tables)
+        Studies.new(rows: rows).call(scans, ga: options[:ga], at: options[:at],
+                                            sex: options[:sex], stratum: options[:stratum])
       end
 
       # Absent unless all three flags arrived, which ReportOptions has already
@@ -71,14 +132,8 @@ module Biometry
         ).value!
       end
 
-      def rows_for(options)
-        GrowthRows.new(manifests: manifests, tables: tables)
-                  .call(scan: scan_of(options), ga: options[:ga],
-                        sex: options[:sex], stratum: options[:stratum])
-      end
-
-      def render(dating, growth, options)
-        arguments = { dating: dating, ga: options[:ga], scan: scan_of(options), growth: growth,
+      def render(dating, studies, options)
+        arguments = { dating: dating, ga: options[:ga], studies: studies,
                       redating: redating_for(options) }
         return Presentation::JsonReport.new.call(**arguments) if options[:json]
 
@@ -88,8 +143,9 @@ module Biometry
       # Exit 1 only when nothing at all could be reported. The refusals are the
       # result and still print; CRL and biometry always refuse, so any other
       # rule would make exit 1 permanent.
-      def reportable?(dating, growth)
-        dating.values.any?(&:success?) || growth.any? { |row| row[:report].success? }
+      def reportable?(dating, studies)
+        rows = studies.flat_map(&:growth)
+        dating.values.any?(&:success?) || rows.any? { |row| row[:report].success? }
       end
 
       def scan_of(options)
@@ -98,6 +154,13 @@ module Biometry
         end
         Scan.new(date: options[:at], measurements: measurements)
       end
+
+      # No loader yet, deliberately. data/loinc.yml does not exist and its
+      # shape has never been decided, so a loader written now would be tested
+      # against a schema someone guessed at — which proves nothing about the
+      # file that eventually lands. Transcribing the mapping and wiring it here
+      # are one piece of work; until then --hl7 refuses and says so.
+      def transcribed_loinc = nil
 
       def manifests
         @manifests ||= MANIFESTS.to_h do |name|

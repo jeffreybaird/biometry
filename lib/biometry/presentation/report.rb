@@ -31,9 +31,14 @@ module Biometry
 
       # `redating` is optional: a report nobody asked a redating question of
       # renders exactly as it did before the section existed.
-      def call(dating:, ga:, scan:, growth:, redating: nil)
+      # `ga` is the gestation the caller supplied, at the reference date. Each
+      # study carries the gestation on its own date, which is not the same
+      # thing the moment a message reports two.
+      def call(dating:, ga:, studies:, redating: nil)
+        rows = studies.flat_map(&:growth)
         [dating_section(dating), '', *redating_section(redating),
-         growth_section(ga, scan, growth), '', footnotes(growth, redating)].join("\n")
+         *studies.flat_map { |study| [growth_section(study, ga, studies.length), ''] },
+         footnotes(rows, redating)].join("\n")
       end
 
       private
@@ -105,10 +110,22 @@ module Biometry
 
       # ---------------------------------------------------------------- growth
 
-      def growth_section(ga, scan, growth)
-        heading = "#{emphasise('Growth')}#{GAP}GA #{ga}#{GAP}#{Format.measurements(scan)}"
-        [heading, '', *aligned(growth.map { |row| growth_row(row) })].join("\n")
+      def growth_section(study, supplied, count)
+        [heading(study, supplied, count), '',
+         *aligned(study.growth.map { |row| growth_row(row) })].join("\n")
       end
+
+      # The date appears when it explains something: when there is more than
+      # one study to tell apart, or when this study's gestation is not the one
+      # the caller typed. A shifted gestation printed without the date beside
+      # it reads as a pregnancy weeks behind where the caller said it was.
+      def heading(study, supplied, count)
+        parts = [emphasise('Growth')]
+        parts << study.date.iso8601 if dated?(study, supplied, count)
+        parts.push("GA #{study.ga}", Format.measurements(study.scan)).join(GAP)
+      end
+
+      def dated?(study, supplied, count) = count > 1 || study.ga != supplied
 
       # A refusing row keeps the columns it does have and then says why. A
       # weight the chart could not place is still a finding, so it stays on the

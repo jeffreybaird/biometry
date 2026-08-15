@@ -21,7 +21,7 @@ RSpec.describe 'the biometry report help' do
 
   biometric_flags = Biometry::CLI::ReportOptions::MEASUREMENTS.map { |kind| "--#{kind}" }
   flags = %w[--ga --at --json --lmp --cycle --transfer --embryo-day --sex --stratum
-             --established-edd --established-by --scan-edd] + biometric_flags
+             --established-edd --established-by --scan-edd --hl7] + biometric_flags
 
   # The names the report already refuses to print. A help page that explains
   # the command may not introduce the vocabulary the output excludes.
@@ -220,6 +220,32 @@ RSpec.describe 'the biometry report help' do
 
     it 'says the three go together' do
       expect(entry('--established-edd')).to match(/together|all three|alongside|requires/i)
+    end
+  end
+
+  # Slice 6. The second source of measurements, and the only flag on the page
+  # that does not work yet.
+  describe 'the message flag' do
+    it 'says --hl7 takes the path to a message file' do
+      expect(entry('--hl7')).to match(/path|file/i)
+    end
+
+    it 'says which kind of message it reads' do
+      expect(entry('--hl7')).to match(/hl7/i).and match(/oru/i)
+    end
+
+    # A reader who supplies both has typed a measurement twice and will be
+    # refused for it, so the page says so before they do.
+    it 'says the measurements come from the message instead of from the flags' do
+      expect(entry('--hl7')).to match(/instead of|rather than|not (both|alongside)/i)
+    end
+
+    # A documented flag that refuses everything is worse than an undocumented
+    # one unless the page says why. The reason is a transcription this library
+    # has not made, and the page names it.
+    it 'says it refuses until the LOINC mapping is transcribed' do
+      expect(entry('--hl7')).to match(/loinc/i)
+      expect(entry('--hl7')).to match(/until|not yet|refus/i)
     end
   end
 

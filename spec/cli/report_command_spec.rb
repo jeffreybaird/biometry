@@ -20,8 +20,12 @@ RSpec.describe Biometry::CLI::ReportCommand do
 
   def document(*extra) = JSON.parse(call(*extra, '--json')[1])
 
+  # The measurements and the rows sit inside the study they were read from. The
+  # four flags describe one study, so there is one entry.
+  def only_study(*extra) = document(*extra)['studies'].first
+
   def first_weight(ac)
-    document('--ac', ac)['growth'].filter_map { |row| row.dig('weight', 'value') }.first
+    only_study('--ac', ac)['growth'].filter_map { |row| row.dig('weight', 'value') }.first
   end
 
   context 'when a measurement carries one decimal place' do
@@ -33,7 +37,7 @@ RSpec.describe Biometry::CLI::ReportCommand do
     end
 
     it 'carries the millimetres as typed and the centimetres they convert to' do
-      measurement = document('--ac', '274.5')['measurements'].find { |m| m['kind'] == 'ac' }
+      measurement = only_study('--ac', '274.5')['measurements'].find { |m| m['kind'] == 'ac' }
       expect(measurement).to include('mm' => 274.5, 'cm' => 27.45)
     end
 

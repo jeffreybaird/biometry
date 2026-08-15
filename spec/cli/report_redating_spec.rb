@@ -229,7 +229,7 @@ RSpec.describe 'the biometry report redating' do
     end
 
     it 'stays undecorated, with nothing but the document on that stream' do
-      expect(document).to have_key('growth')
+      expect(document['studies'].first).to have_key('growth')
     end
   end
 

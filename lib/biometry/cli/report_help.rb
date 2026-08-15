@@ -79,6 +79,16 @@ module Biometry
                            because NICHD publishes no combined table and the
                            spread between them is the finding.
 
+        Messages
+          --hl7 PATH       Read the biometry from an HL7 ORU^R01 observation
+                           message at PATH, instead of from the four
+                           measurement flags -- pass one or the other, not
+                           both. Each OBR in the message is one study.
+                           Refused until data/loinc.yml is transcribed: without
+                           a mapping no OBX identifier can be named, and a
+                           report with nothing in it would read as a fetus
+                           nobody measured.
+
         Output
           --json           Emit the report as JSON on stdout, undecorated. It
                            carries unrounded values where the table rounds a

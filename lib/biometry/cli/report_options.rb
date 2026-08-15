@@ -38,6 +38,7 @@ module Biometry
         raise UsageError, 'missing --ga, which no derivation may choose for you' unless options[:ga]
 
         require_redating_together(options)
+        require_one_source(options)
         options
       end
 
@@ -49,10 +50,15 @@ module Biometry
           dating(parser, options)
           redating(parser, options)
           charts(parser, options)
-          parser.on('--ga GA') { |value| options[:ga] = gestational_age(value) }
-          parser.on('--at DATE') { |value| options[:at] = date(value, '--at') }
-          parser.on('--json') { options[:json] = true }
+          report(parser, options)
         end
+      end
+
+      def report(parser, options)
+        parser.on('--ga GA') { |value| options[:ga] = gestational_age(value) }
+        parser.on('--at DATE') { |value| options[:at] = date(value, '--at') }
+        parser.on('--hl7 PATH') { |value| options[:hl7] = value }
+        parser.on('--json') { options[:json] = true }
       end
 
       def measurements(parser, options)
@@ -84,6 +90,17 @@ module Biometry
         parser.on('--embryo-day DAY') do |value|
           options[:embryo_day] = whole(value, '--embryo-day')
         end
+      end
+
+      # Measurements come from the message *instead of* the flags. Both at once
+      # is a request with two answers to the same question, and picking one
+      # silently is picking which biometry the report is of.
+      def require_one_source(options)
+        return unless options[:hl7] && MEASUREMENTS.any? { |kind| options[kind] }
+
+        supplied = MEASUREMENTS.select { |kind| options[kind] }.map { |kind| "--#{kind}" }
+        raise UsageError,
+              "--hl7 supplies the measurements, so #{supplied.join(' and ')} cannot also"
       end
 
       def charts(parser, options)

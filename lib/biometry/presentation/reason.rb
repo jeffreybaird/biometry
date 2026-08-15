@@ -80,7 +80,10 @@ module Biometry
                .join('; ')
       end
 
-      def list(values) = values.nil? || values.empty? ? 'none' : values.join(', ')
+      # A payload may name one thing or several — slice 6 reports a required
+      # `:discrete_observations`, the services a list of parameters — and both
+      # read the same way here.
+      def list(values) = Array(values).empty? ? 'none' : Array(values).join(', ')
     end
   end
 end

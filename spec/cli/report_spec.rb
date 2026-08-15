@@ -37,6 +37,9 @@ RSpec.describe 'the biometry report command' do
     out.gsub(/\e\[[0-9;]*m/, '').lines.grep(/^\s+(INTERGROWTH|Hadlock 1991|WHO|NICHD)/)
   end
 
+  # A document carries one entry per study, and measurement flags describe one.
+  def only_study(out) = JSON.parse(out)['studies'].first
+
   def citation(name) = ComposedReport.manifest(name)[:source][:citation]
 
   def squeezed(text) = text.gsub(/\s+/, ' ').strip
@@ -230,12 +233,12 @@ RSpec.describe 'the biometry report command' do
 
     it 'puts nothing but the document on that stream' do
       _, out, = call(base + %w[--json])
-      expect(JSON.parse(out)['growth'].length).to eq(7)
+      expect(only_study(out)['growth'].length).to eq(7)
     end
 
     it 'carries the unrounded centile the table rounded' do
       _, out, = call(base + %w[--json])
-      values = JSON.parse(out)['growth'].map { |row| row.dig('percentile', 'value') }
+      values = only_study(out)['growth'].map { |row| row.dig('percentile', 'value') }
       expect(values).to include(a_value_within(1e-9).of(31.691353849999643))
     end
 

@@ -24,9 +24,21 @@ RSpec.describe Biometry::Presentation::JsonReport do
   let(:redating) { nil }
   let(:json) { redating ? render(redating: redating) : render }
 
+  # A document carries one entry per study. Everything below this line
+  # describes the single-study document; the several-study case is in
+  # json_studies_spec.rb.
   def render(**arguments)
-    described_class.new.call(dating: dating, ga: ga, scan: scan, growth: growth, **arguments)
+    described_class.new.call(dating: dating, ga: ga, studies: [study], **arguments)
   end
+
+  def study = Biometry::Study.new(scan: scan, ga: ga, growth: growth)
+
+  # The measurements and the rows now sit inside the study they were read
+  # from, rather than at the top of a document that could only ever describe
+  # one. The assertions about them are unchanged.
+  def only_study = document['studies'].first
+
+  def growth_entries = Array(only_study['growth'])
 
   def squeezed(text) = text.gsub(/\s+/, ' ').strip
 
@@ -43,7 +55,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
   # A missing entry reads as an empty one, so the failure names the field that
   # was wanted rather than raising on nil.
-  def entry(index) = Array(document['growth']).fetch(index, {})
+  def entry(index) = growth_entries.fetch(index, {})
 
   def percentile(index) = growth[index][:report].value!
 
@@ -51,7 +63,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
   it 'returns a string that parses as a JSON document' do
     expect(document.keys)
-      .to include('gestational_age', 'measurements', 'dating', 'growth', 'sources', 'notes')
+      .to include('gestational_age', 'studies', 'dating', 'sources', 'notes')
   end
 
   it 'is undecorated: no colour, no alignment padding' do
@@ -69,7 +81,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
     end
 
     it 'carries each measurement in the millimetres it arrived as' do
-      expect(document['measurements'])
+      expect(only_study['measurements'])
         .to include({ 'kind' => 'ac', 'mm' => 274, 'cm' => 27.4 })
     end
   end
@@ -100,17 +112,17 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
   describe 'the growth rows' do
     it 'carries one entry per row, with NICHD fanned out to its four charts' do
-      expect(document['growth'].length).to eq(7)
+      expect(growth_entries.length).to eq(7)
     end
 
     it 'names the standard and the chart within it on every entry' do
-      expect(document['growth'].map { |row| [row['standard'], row['stratum']] })
+      expect(growth_entries.map { |row| [row['standard'], row['stratum']] })
         .to eq([['intergrowth21', nil], ['hadlock_1991', nil], %w[who female],
                 %w[nichd white], %w[nichd black], %w[nichd hispanic], %w[nichd asian]])
     end
 
     it 'distinguishes a prescriptive standard from a reference one' do
-      expect(document['growth'].map { |row| row['type'] })
+      expect(growth_entries.map { |row| row['type'] })
         .to eq(%w[prescriptive reference reference prescriptive prescriptive
                   prescriptive prescriptive])
     end
@@ -184,7 +196,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
     let(:growth) { ComposedReport.growth(ga: ga) }
 
     it 'keeps the entry rather than shortening the array' do
-      expect(Array(document['growth']).map { |row| row['standard'] })
+      expect(growth_entries.map { |row| row['standard'] })
         .to eq(%w[intergrowth21 hadlock_1991 who nichd])
     end
 
@@ -212,7 +224,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
       end
 
       it 'carries each standard\'s own convention rather than one shared week' do
-        weeks = Array(document['growth']).map { |row| row.dig('error', 'details', 'ga_weeks') }
+        weeks = growth_entries.map { |row| row.dig('error', 'details', 'ga_weeks') }
         expect(weeks).to eq([41.42857142857143, 41.4, 41, 41])
       end
     end
