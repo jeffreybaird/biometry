@@ -65,6 +65,23 @@ module ComposedReport
       .call(scan).value!
   end
 
+  # One study as the renderers receive it: a dated set of measurements, the
+  # gestation *that study* is read at, and the rows read from it. A report
+  # carries an ordered collection of these, one per study, because a message
+  # may report more than one and neither the caller nor this library chooses
+  # between them.
+  def study(scan: nil, ga: nil, sex: :female, stratum: nil)
+    scan ||= scan_of
+    ga ||= ga_of
+    Biometry::Study.new(scan: scan, ga: ga,
+                        growth: growth(scan: scan, ga: ga, sex: sex, stratum: stratum))
+  end
+
+  # The gestation at a study's own date, which is the arithmetic the decision
+  # pins: the supplied gestation, less the days between the reference date and
+  # the day that study was performed.
+  def ga_at(date, supplied: ga_of, at: REFERENCE_DATE) = supplied - (at - date).to_i
+
   def growth(scan: nil, ga: nil, sex: :female, stratum: nil)
     scan ||= scan_of
     ga ||= ga_of
