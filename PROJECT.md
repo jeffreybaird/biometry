@@ -982,6 +982,33 @@ silently taken as millimetres.
 case, then per-segment handling. A message that is not an ORU^R01 at all is
 refused before its OBX segments are examined.
 
+**The narrative test takes two conditions**, decided while building it: there
+must be prose, *and* nothing the mapping names may carry a number. A message of
+numbers under identifiers nothing maps is not a narrative report — it is one
+this library has no vocabulary for, and those identifiers are worth handing
+back rather than swallowing behind a refusal about prose.
+
+### A message with two studies — decided 2026-08-15
+
+**Every study is reported, each with its own growth table**, headed by the date
+that study was performed. Nothing is chosen on the caller's behalf and nothing
+is discarded.
+
+**Each study is read at the gestation on its own date:**
+
+```
+GA at a study = the GA supplied − (the reference date − that study's OBR-7)
+```
+
+Reading both tables at the typed `--ga` would print, for a study taken weeks
+earlier, a percentile wrong by exactly the days between them — a wrong number
+with a correct-looking date beside it. The correction is pure date arithmetic
+of the kind `GestationalAge` already does, and no clinical constant enters it.
+
+A study whose shifted gestation falls before the pregnancy began, or outside a
+chart's window, is refused by the adapters exactly as any other out-of-range
+gestation is. That path already exists and needs nothing new.
+
 ---
 
 ## Sequence
