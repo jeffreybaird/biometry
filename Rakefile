@@ -3,8 +3,17 @@
 require 'rspec/core/rake_task'
 require 'rubocop/rake_task'
 
-RSpec::Core::RakeTask.new(:spec)
+# Tier 3b (spec/oracle/) stays out of the default run on purpose: a mismatch
+# there is a question for a human, not a regression to fix. See docs/FIXTURES.md.
+RSpec::Core::RakeTask.new(:spec) do |t|
+  t.exclude_pattern = 'spec/oracle/**/*_spec.rb'
+end
 RuboCop::RakeTask.new(:rubocop)
+
+desc 'Tier 3b: FetalGPS chart agreement — corroboration, run deliberately'
+RSpec::Core::RakeTask.new(:oracle) do |t|
+  t.pattern = 'spec/oracle/**/*_spec.rb'
+end
 
 desc 'Fail if output calls appear outside presentation/'
 task :no_stray_output do
