@@ -13,17 +13,18 @@ module Biometry
     # clinical decision is made here — every refusal in the output came from a
     # service.
     class ReportCommand
-      MANIFESTS = %i[acog_redating hadlock_1985 hadlock_1991 intergrowth21 nichd who].freeze
-      TABLES = %i[nichd who].freeze
-
       # `loinc` maps OBX-3 identifiers to measurement kinds. It defaults to the
       # transcription in data/, which does not exist yet — injecting it is what
       # lets the message path be exercised before that file lands, without a
       # spec asserting against a code nobody verified.
-      def initialize(stdout:, stderr:, loinc: nil)
+      #
+      # `context` is the loaded reference data; it defaults lazily to
+      # Biometry.load so help and usage errors answer without reading data/.
+      def initialize(stdout:, stderr:, loinc: nil, context: nil)
         @stdout = stdout
         @stderr = stderr
         @loinc = loinc || transcribed_loinc
+        @context = context
       end
 
       HELP_FLAGS = %w[--help -h help].freeze
@@ -161,17 +162,11 @@ module Biometry
       # are one piece of work; until then --hl7 refuses and says so.
       def transcribed_loinc = nil
 
-      def manifests
-        @manifests ||= MANIFESTS.to_h do |name|
-          [name, ReferenceData.load_manifest(DATA_ROOT / "#{name}.yml").first]
-        end
-      end
+      def context = @context ||= Biometry.load
 
-      def tables
-        @tables ||= TABLES.to_h do |name|
-          [name, ReferenceData.load_table(DATA_ROOT / "percentiles/#{name}.csv")]
-        end
-      end
+      def manifests = context.manifests
+
+      def tables = context.tables
     end
   end
 end
