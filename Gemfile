@@ -4,8 +4,7 @@ source 'https://rubygems.org'
 
 ruby '~> 3.3.6'
 
-gem 'csv', '~> 3.3' # bundled gem from Ruby 3.4; declare it explicitly
-gem 'dry-monads', '~> 1.6'
+gemspec
 
 group :development, :test do
   gem 'bundler-audit', '~> 0.9'

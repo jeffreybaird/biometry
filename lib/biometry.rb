@@ -2,6 +2,7 @@
 
 require 'pathname'
 
+require_relative 'biometry/version'
 require_relative 'biometry/errors'
 require_relative 'biometry/models/boundary_sensitivity'
 require_relative 'biometry/models/caveat'
@@ -41,8 +42,6 @@ require_relative 'biometry/services/growth/who'
 require_relative 'biometry/services/growth/who/centiles'
 
 module Biometry
-  VERSION = '0.1.0'
-
   ROOT = Pathname.new(File.expand_path('..', __dir__)).freeze
   DATA_ROOT = (ROOT / 'data').freeze
 
