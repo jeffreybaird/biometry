@@ -25,6 +25,8 @@ module Biometry
 
     def report(**request) = @builder.call(**request)
 
+    def chart_series(**request) = @chart_series.call(**request)
+
     private
 
     # Every service is built once, before the freeze: a Context outlives a
@@ -34,7 +36,12 @@ module Biometry
       @catalog = Services::Catalog.new(manifests: manifests).call
       @dating = Services::Dating::AllDerivations.new
       @weights = weight_service
+      wire_report
+    end
+
+    def wire_report
       @builder = Services::Report::Builder.new(manifests: manifests, tables: tables)
+      @chart_series = Services::Growth::ChartSeries.new(manifests: manifests, tables: tables)
     end
 
     def weight_service

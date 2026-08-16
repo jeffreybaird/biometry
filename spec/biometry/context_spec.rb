@@ -91,6 +91,42 @@ RSpec.describe Biometry::Context do
     end
   end
 
+  # What a web app draws. The Context wires the service on every manifest it
+  # loaded, growth and otherwise; the service reads the growth ones and ignores
+  # the rest, so the curves here must be the curves it draws when handed only
+  # those — a chart that differed would mean the wiring, not the standard,
+  # decided something.
+  describe '#chart_series' do
+    let(:growth_manifests) { %i[hadlock_1991 intergrowth21 nichd who] }
+    let(:service) do
+      Biometry::Services::Growth::ChartSeries.new(
+        manifests: growth_manifests.to_h { |name| [name, manifest(name)] },
+        tables: { nichd: table('nichd'), who: table('who') }
+      )
+    end
+
+    it 'draws the curves the service draws' do
+      expect(context.chart_series(standard: :who).value!.series)
+        .to eq(service.call(standard: :who).value!.series)
+    end
+
+    it 'describes the chart as the service describes it' do
+      expect(context.chart_series(standard: :who).value!.chart)
+        .to eq(service.call(standard: :who).value!.chart)
+    end
+
+    it 'hands the caller\'s options to the service, a centile asked for being drawn' do
+      series = context.chart_series(standard: :who, centiles: [10]).value!.series
+      expect(series.map(&:centile)).to eq([10])
+    end
+
+    it 'refuses a standard the registry does not serve, offering the charts it does' do
+      expect(context.chart_series(standard: :hadlock_1985).failure)
+        .to match([:unsupported_standard, { requested: :hadlock_1985,
+                                            available: match_array(context.charts.keys) }])
+    end
+  end
+
   # What a web app enumerates before a user has supplied anything. The Context
   # holds it so data/ is described once per process, but it describes the same
   # thing the service does — a catalog assembled here would be a second answer.
