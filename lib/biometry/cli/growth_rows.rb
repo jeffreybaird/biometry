@@ -16,9 +16,19 @@ module Biometry
     class GrowthRows
       include Dry::Monads[:result]
 
-      # Each chart's paired formula, as its manifest states it.
-      CHARTS = { intergrowth21: :intergrowth, hadlock_1991: :hadlock_bpd_hc_ac_fl,
+      # Each chart's paired formula, as its manifest states it. Hadlock 1991
+      # appears twice because its dispersion is contested (12.7% in the
+      # abstract, 13.3% implied by Table 1; see the manifest's
+      # `dispersion_contested` known_issue) and this library reports both
+      # sides of a live dispute rather than picking one.
+      CHARTS = { intergrowth21: :intergrowth,
+                 hadlock_1991_equation: :hadlock_bpd_hc_ac_fl,
+                 hadlock_1991_table: :hadlock_bpd_hc_ac_fl,
                  who: :hadlock_hc_ac_fl, nichd: :hadlock_hc_ac_fl }.freeze
+
+      # Both Hadlock variants read the one hadlock_1991 manifest.
+      MANIFEST_KEYS = { hadlock_1991_equation: :hadlock_1991,
+                        hadlock_1991_table: :hadlock_1991 }.freeze
 
       def initialize(manifests:, tables:)
         @manifests = manifests
@@ -51,7 +61,7 @@ module Biometry
       def rows(standard, weight, **query)
         report = weight.success? ? read(standard, weight.value!, **query) : weight
         row = { standard: standard, weight: weight, report: report,
-                citation: manifests[standard].dig(:source, :citation) }
+                citation: manifest_for(standard).dig(:source, :citation) }
         return [row] unless standard == :nichd && report.success?
 
         report.value!.map { |percentile| row.merge(report: Success(percentile)) }
@@ -68,14 +78,23 @@ module Biometry
       def chart(standard)
         case standard
         when :intergrowth21 then Services::Growth::Intergrowth.new(manifest: manifests[standard])
-        when :hadlock_1991 then Services::Growth::Hadlock1991.new(manifest: manifests[standard])
+        when :hadlock_1991_equation, :hadlock_1991_table then hadlock_variant(standard)
         when :who then table_chart(Services::Growth::Who, standard, :who)
         else table_chart(Services::Growth::Nichd, standard, :nichd)
         end
       end
 
+      # The variant name is the tail of the chart id; the manifest's
+      # `variants` block is the authority on what each one means.
+      def hadlock_variant(standard)
+        variant = standard.to_s.delete_prefix('hadlock_1991_').to_sym
+        Services::Growth::Hadlock1991.new(manifest: manifest_for(standard), variant: variant)
+      end
+
+      def manifest_for(standard) = manifests[MANIFEST_KEYS.fetch(standard, standard)]
+
       def table_chart(klass, standard, table)
-        klass.new(manifest: manifests[standard], table: tables[table])
+        klass.new(manifest: manifest_for(standard), table: tables[table])
       end
     end
   end

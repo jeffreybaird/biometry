@@ -150,12 +150,28 @@ RSpec.describe Biometry::Presentation::Format do
 
   describe '.standard' do
     {
-      intergrowth21: 'INTERGROWTH-21st', hadlock_1991: 'Hadlock 1991',
+      intergrowth21: 'INTERGROWTH-21st',
+      hadlock_1991_equation: 'Hadlock 1991 (equation)',
+      hadlock_1991_table: 'Hadlock 1991 (table)',
       nichd: 'NICHD', who: 'WHO'
     }.each do |symbol, text|
       it "names #{symbol} as #{text}" do
         expect(described_class.standard(symbol)).to eq(text)
       end
+    end
+
+    # The 1991 paper prints two irreconcilable dispersion figures and both are
+    # reported, so the label says which one produced the row. Two rows reading
+    # `Hadlock 1991` would look like a duplicate rather than a disagreement.
+    it 'tells the two Hadlock 1991 rows apart on the page' do
+      names = %i[hadlock_1991_equation hadlock_1991_table].map { |s| described_class.standard(s) }
+      expect(names.uniq.length).to eq(2)
+    end
+
+    # There is no such chart to label: the standard is served as two variants
+    # and a row reading `Hadlock 1991` would name a figure nobody chose.
+    it 'has no name for the standard shorn of its variant' do
+      expect(described_class.standard(:hadlock_1991)).to eq('hadlock_1991')
     end
 
     it 'names the chart a stratified row was read from' do

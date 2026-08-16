@@ -1,17 +1,22 @@
 # frozen_string_literal: true
 
 # Acceptance layer: what a user of this slice sees end to end. One scan, one
-# gestational age, four standards, and the disagreement between them as the
-# output rather than a caveat on it.
+# gestational age, four standards — five charts, Hadlock 1991 being served as
+# two — and the disagreement between them as the output rather than a caveat
+# on it. Hadlock is where that principle is sharpest: the paper contradicts
+# itself on its own dispersion, so both readings are reported and neither is
+# chosen.
 #
 # There is no aggregate service. The four adapters are not uniform — two
 # equations and two tables, three dispersion models, three valid windows, two
 # stratification axes — so this composes them the way the CLI will, and the
 # behaviour asserted is the composed result rather than any orchestration.
 #
-# Three EFW values feed four charts, because formula and chart are paired:
-# INTERGROWTH reads its own AC+HC weight, Hadlock 1991 the four-parameter
-# model, and NICHD and WHO both the three-parameter one.
+# Three EFW values feed five charts, because formula and chart are paired:
+# INTERGROWTH reads its own AC+HC weight, both Hadlock 1991 variants the
+# four-parameter model, and NICHD and WHO both the three-parameter one. The
+# dispersion dispute is about the chart, not the weight, so the two variants
+# pair identically and are read from the same estimate.
 RSpec.describe Biometry::Services::Growth do
   let(:ga) { Biometry::GestationalAge.from(weeks: 32, days: 4) }
   let(:weights) do
@@ -40,8 +45,10 @@ RSpec.describe Biometry::Services::Growth do
   # Every standard read from the weight its own chart was built on, or from a
   # weight it was not, which is what the mismatch context exercises.
   def reports(paired: true)
+    hadlock = paired ? :hadlock_bpd_hc_ac_fl : :intergrowth
     { intergrowth21: intergrowth(paired ? :intergrowth : :hadlock_ac_fl),
-      hadlock_1991: hadlock_1991(paired ? :hadlock_bpd_hc_ac_fl : :intergrowth),
+      hadlock_1991_equation: hadlock_1991(hadlock, :equation),
+      hadlock_1991_table: hadlock_1991(hadlock, :table),
       nichd: nichd(paired ? :hadlock_hc_ac_fl : :intergrowth),
       who: who(paired ? :hadlock_hc_ac_fl : :intergrowth) }
   end
@@ -51,8 +58,11 @@ RSpec.describe Biometry::Services::Growth do
                                 .call(estimate: efw(formula), ga: ga)
   end
 
-  def hadlock_1991(formula)
-    described_class::Hadlock1991.new(manifest: manifest('hadlock_1991'))
+  # One manifest, two charts. Which dispersion figure the 1991 paper meant is
+  # contested and unresolved, so the variant is named at construction and both
+  # are read here.
+  def hadlock_1991(formula, variant)
+    described_class::Hadlock1991.new(manifest: manifest('hadlock_1991'), variant: variant)
                                 .call(estimate: efw(formula), ga: ga)
   end
 
@@ -76,13 +86,28 @@ RSpec.describe Biometry::Services::Growth do
       expect(reports.values.map(&:success?)).to all(be(true))
     end
 
-    it 'returns seven rows, because NICHD publishes four charts and no combined one' do
-      expect(rows.length).to eq(7)
+    it 'returns eight rows, because NICHD publishes four charts and no combined one' do
+      expect(rows.length).to eq(8)
     end
 
     it 'names the standard on every row' do
       expect(rows.map { |p| p.source.standard })
-        .to match_array(%i[intergrowth21 hadlock_1991 nichd nichd nichd nichd who])
+        .to match_array(%i[intergrowth21 hadlock_1991_equation hadlock_1991_table
+                           nichd nichd nichd nichd who])
+    end
+
+    # The two Hadlock rows are one paper read two ways, and the reading is
+    # what differs: same weight, same week, two percentiles.
+    it 'reports both dispersion figures the 1991 paper carries' do
+      readings = reports.values_at(:hadlock_1991_equation, :hadlock_1991_table)
+                        .map { |result| result.value!.value }
+      expect(readings.uniq.length).to eq(2)
+    end
+
+    it 'cites the one paper behind both of them' do
+      citations = reports.values_at(:hadlock_1991_equation, :hadlock_1991_table)
+                         .map { |result| result.value!.source.citation }
+      expect(citations.uniq.length).to eq(1)
     end
 
     it 'names the formula that produced the weight on every row' do
@@ -91,8 +116,9 @@ RSpec.describe Biometry::Services::Growth do
 
     it 'distinguishes prescriptive standards from references' do
       types = reports.transform_values { |r| Array(r.value!).flatten.first.source.type }
-      expect(types).to eq(intergrowth21: :prescriptive, hadlock_1991: :reference,
-                          nichd: :prescriptive, who: :reference)
+      expect(types).to eq(intergrowth21: :prescriptive, hadlock_1991_equation: :reference,
+                          hadlock_1991_table: :reference, nichd: :prescriptive,
+                          who: :reference)
     end
 
     it 'reads three distinct weights, one per pairing' do
@@ -106,10 +132,10 @@ RSpec.describe Biometry::Services::Growth do
       expect(methods.uniq).to eq([:linear_in_weight])
     end
 
-    it 'names a closed form in both equation standards' do
-      methods = rows.select { |p| %i[intergrowth21 hadlock_1991].include?(p.source.standard) }
-                    .map(&:interpolation)
-      expect(methods).to eq(%i[closed_form closed_form])
+    it 'names a closed form in every equation chart' do
+      equations = %i[intergrowth21 hadlock_1991_equation hadlock_1991_table]
+      methods = rows.select { |p| equations.include?(p.source.standard) }.map(&:interpolation)
+      expect(methods).to eq(%i[closed_form closed_form closed_form])
     end
 
     # 32w4d is completed week 32 for the tables, 32.571428 exact weeks for
@@ -146,6 +172,13 @@ RSpec.describe Biometry::Services::Growth do
       expect(reports(paired: false)[:who].failure.last)
         .to eq(chart: :who, expected: :hadlock_hc_ac_fl, given: :intergrowth)
     end
+
+    it 'names the variant that refused, not the paper the two share' do
+      charts = reports(paired: false)
+               .values_at(:hadlock_1991_equation, :hadlock_1991_table)
+               .map { |result| result.failure.last[:chart] }
+      expect(charts).to eq(%i[hadlock_1991_equation hadlock_1991_table])
+    end
   end
 
   # Three windows, three answers to the same gestation. 14 weeks is inside
@@ -154,7 +187,8 @@ RSpec.describe Biometry::Services::Growth do
     let(:ga) { Biometry::GestationalAge.from(weeks: 14, days: 0) }
 
     it 'reports from the standards whose window covers it' do
-      expect(reports.values_at(:hadlock_1991, :who).map(&:success?)).to all(be(true))
+      expect(reports.values_at(:hadlock_1991_equation, :hadlock_1991_table, :who)
+                    .map(&:success?)).to all(be(true))
     end
 
     it 'refuses on the standards whose window does not, naming each window' do

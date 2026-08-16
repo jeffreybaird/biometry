@@ -61,7 +61,29 @@ RSpec.describe 'the biometry report command' do
 
     it 'compares every chart, NICHD fanned out to its four' do
       _, out, = call(base)
-      expect(growth_rows(out).length).to eq(7)
+      expect(growth_rows(out).length).to eq(8)
+    end
+
+    # One paper, two dispersion figures, no erratum. The library's job is to
+    # put the disagreement in front of the reader rather than to pick a side,
+    # and here the two sides are a row apart on the same page: the same weight
+    # at the same week, about a percentile apart.
+    it 'prints both Hadlock 1991 dispersion figures as their own rows' do
+      _, out, = call(base)
+      labels = growth_rows(out).filter_map { |line| line[/Hadlock 1991 \(\w+\)/] }
+      expect(labels).to eq(['Hadlock 1991 (equation)', 'Hadlock 1991 (table)'])
+    end
+
+    it 'reads the same weight two ways, which is the disagreement it exists to show' do
+      _, out, = call(base)
+      centiles = growth_rows(out).grep(/Hadlock 1991/)
+                                 .map { |line| line[/\d+(?:st|nd|rd|th)\b/] }
+      expect(centiles.uniq.length).to eq(2)
+    end
+
+    it 'cites the one paper behind both rows once' do
+      _, out, = call(base)
+      expect(out.lines.count { |line| line.include?(citation('hadlock_1991')) }).to eq(1)
     end
 
     it 'prints three distinct weights, because formula and chart are paired' do
@@ -95,10 +117,10 @@ RSpec.describe 'the biometry report command' do
   context 'when every chart refuses the gestation' do
     def refused = call(base(ga: '41w0d'))
 
-    it 'exits 0 and prints a row for each of the four standards' do
+    it 'exits 0 and prints a row for each of the five charts' do
       status, out, err = refused
       expect(status).to eq(0)
-      expect(growth_rows(out).length).to eq(4)
+      expect(growth_rows(out).length).to eq(5)
       expect(err).to be_empty
     end
 
@@ -209,7 +231,7 @@ RSpec.describe 'the biometry report command' do
   context 'when a race or ethnicity is supplied' do
     it 'prints that NICHD chart alone, so the fan-out is a default and not a flag' do
       _, out, = call(base + %w[--stratum white])
-      expect(growth_rows(out).length).to eq(4)
+      expect(growth_rows(out).length).to eq(5)
       expect(out).to include('NICHD (white)')
     end
   end
@@ -233,7 +255,18 @@ RSpec.describe 'the biometry report command' do
 
     it 'puts nothing but the document on that stream' do
       _, out, = call(base + %w[--json])
-      expect(only_study(out)['growth'].length).to eq(7)
+      expect(only_study(out)['growth'].length).to eq(8)
+    end
+
+    # A consumer storing `hadlock_1991` would be storing one of two figures
+    # with no record of which, so the variant is part of the standard's name
+    # rather than a note beside it.
+    it 'names each Hadlock variant in the standard field' do
+      _, out, = call(base + %w[--json])
+      standards = only_study(out)['growth'].map { |row| row['standard'] }
+      expect(standards)
+        .to eq(%w[intergrowth21 hadlock_1991_equation hadlock_1991_table who
+                  nichd nichd nichd nichd])
     end
 
     it 'carries the unrounded centile the table rounded' do

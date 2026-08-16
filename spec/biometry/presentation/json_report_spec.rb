@@ -112,38 +112,66 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
   describe 'the growth rows' do
     it 'carries one entry per row, with NICHD fanned out to its four charts' do
-      expect(growth_entries.length).to eq(7)
+      expect(growth_entries.length).to eq(8)
     end
 
+    # The variant is part of the standard's name, not a modifier beside it: a
+    # consumer storing `hadlock_1991` would be storing a figure the paper
+    # gives two of, with no record of which one it got.
     it 'names the standard and the chart within it on every entry' do
       expect(growth_entries.map { |row| [row['standard'], row['stratum']] })
-        .to eq([['intergrowth21', nil], ['hadlock_1991', nil], %w[who female],
+        .to eq([['intergrowth21', nil], ['hadlock_1991_equation', nil],
+                ['hadlock_1991_table', nil], %w[who female],
                 %w[nichd white], %w[nichd black], %w[nichd hispanic], %w[nichd asian]])
     end
 
     it 'distinguishes a prescriptive standard from a reference one' do
       expect(growth_entries.map { |row| row['type'] })
-        .to eq(%w[prescriptive reference reference prescriptive prescriptive
+        .to eq(%w[prescriptive reference reference reference prescriptive prescriptive
                   prescriptive prescriptive])
+    end
+
+    # The disagreement, in the form a program can act on: two entries, one
+    # weight, one week, two percentiles about a centile apart.
+    describe 'the two Hadlock 1991 entries' do
+      def hadlock = growth_entries.select { |row| row['standard'].start_with?('hadlock_1991') }
+
+      it 'carries both dispersion figures as two entries rather than one' do
+        expect(hadlock.map { |row| row['standard'] })
+          .to eq(%w[hadlock_1991_equation hadlock_1991_table])
+      end
+
+      it 'carries the same weight on both, the pairing being shared' do
+        expect(hadlock.map { |row| row.dig('weight', 'value') }.uniq.length).to eq(1)
+      end
+
+      it 'carries a different percentile on each, unrounded' do
+        values = hadlock.map { |row| row.dig('percentile', 'value') }
+        expect(values.uniq.length).to eq(2)
+      end
+
+      it 'cites the one paper behind both' do
+        expect(hadlock.map { |row| row.dig('percentile', 'citation') }.uniq.length).to eq(1)
+      end
     end
 
     # 31.691353849999643, not 32. This is the half of the pinned rounding
     # decision that the table cannot express.
     it 'carries the percentile unrounded' do
-      expect(entry(3).dig('percentile', 'value')).to eq(percentile(3).value)
+      expect(entry(4).dig('percentile', 'value')).to eq(percentile(4).value)
     end
 
     it 'carries the weight unrounded' do
-      expect(entry(3).dig('weight', 'value')).to eq(estimate(3).value)
+      expect(entry(4).dig('weight', 'value')).to eq(estimate(4).value)
     end
 
     it 'names the formula and the parameter set the weight came from' do
-      expect(entry(3)['weight'].values_at('formula', 'inputs', 'unit'))
+      expect(entry(4)['weight'].values_at('formula', 'inputs', 'unit'))
         .to eq(['hadlock_hc_ac_fl', %w[hc ac fl], 'g'])
     end
 
     it 'names the week the chart was read at and how it was read' do
-      expect(entry(3)['percentile'].values_at('ga_weeks', 'bound', 'interpolation'))
+      expect(entry(4)['percentile'].values_at('ga_weeks', 'bound', 'interpolation'))
         .to eq([32, 'computed', 'linear_in_weight'])
     end
 
@@ -160,7 +188,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
     end
 
     it 'names the paper behind the weight and the paper behind the chart' do
-      expect(entry(3)['weight']['citation']).not_to eq(entry(3)['percentile']['citation'])
+      expect(entry(4)['weight']['citation']).not_to eq(entry(4)['percentile']['citation'])
     end
   end
 
@@ -169,11 +197,11 @@ RSpec.describe Biometry::Presentation::JsonReport do
     let(:growth) { ComposedReport.growth(scan: scan) }
 
     it 'carries the bracket as a bracket rather than as prose' do
-      expect(entry(3)['percentile'].values_at('bound', 'value')).to eq(['below', 3.0])
+      expect(entry(4)['percentile'].values_at('bound', 'value')).to eq(['below', 3.0])
     end
 
     it 'says how it was read, which for an open bracket is not at all' do
-      expect(entry(3).dig('percentile', 'interpolation')).to eq('none')
+      expect(entry(4).dig('percentile', 'interpolation')).to eq('none')
     end
 
     # Guard rather than a new behaviour, and the reason the table may now spell
@@ -182,7 +210,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
     # told apart structurally, by `bound`, which is the form a program should
     # have been branching on all along.
     it 'keeps a computed value past the printable range apart from a bracket' do
-      bounds = [entry(1), entry(3)].map { |row| row.dig('percentile', 'bound') }
+      bounds = [entry(1), entry(4)].map { |row| row.dig('percentile', 'bound') }
       expect(bounds).to eq(%w[computed below])
     end
 
@@ -197,7 +225,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
     it 'keeps the entry rather than shortening the array' do
       expect(growth_entries.map { |row| row['standard'] })
-        .to eq(%w[intergrowth21 hadlock_1991 who nichd])
+        .to eq(%w[intergrowth21 hadlock_1991_equation hadlock_1991_table who nichd])
     end
 
     it 'carries the failure tag and its payload' do
@@ -207,8 +235,15 @@ RSpec.describe Biometry::Presentation::JsonReport do
                               'valid_range' => [15, 40] })
     end
 
+    # The refusal names the variant, for the same reason the reading does: a
+    # payload saying `hadlock_1991` would not say which of the two refused.
+    it 'names each Hadlock variant in its own refusal' do
+      standards = [entry(1), entry(2)].map { |row| row.dig('error', 'details', 'standard') }
+      expect(standards).to eq(%w[hadlock_1991_equation hadlock_1991_table])
+    end
+
     it 'carries the weight it did produce alongside the refusal' do
-      expect(entry(-1).dig('weight', 'value')).to eq(estimate(3).value)
+      expect(entry(-1).dig('weight', 'value')).to eq(estimate(4).value)
     end
 
     # The table renders 41.42857142857143 as `41.4` so that one gestation is
@@ -225,7 +260,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
       it 'carries each standard\'s own convention rather than one shared week' do
         weeks = growth_entries.map { |row| row.dig('error', 'details', 'ga_weeks') }
-        expect(weeks).to eq([41.42857142857143, 41.4, 41, 41])
+        expect(weeks).to eq([41.42857142857143, 41.4, 41.4, 41, 41])
       end
     end
   end
@@ -250,7 +285,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
     end
 
     it 'names no chart within the standard, because none was ever selected' do
-      expect(entry(2).values_at('standard', 'stratum', 'type')).to eq(['who', nil, nil])
+      expect(entry(3).values_at('standard', 'stratum', 'type')).to eq(['who', nil, nil])
     end
   end
 
@@ -261,6 +296,13 @@ RSpec.describe Biometry::Presentation::JsonReport do
 
     it 'lists every paper the document was built from, once each' do
       expect(Array(document['sources']).uniq.length).to eq(5)
+    end
+
+    # Eight rows from five papers, and the two Hadlock 1991 variants are one
+    # of the five: the list is of sources, not of readings.
+    it 'lists the paper behind both Hadlock 1991 entries once' do
+      citation = ComposedReport.manifest('hadlock_1991')[:source][:citation]
+      expect(Array(document['sources']).count(citation)).to eq(1)
     end
   end
 

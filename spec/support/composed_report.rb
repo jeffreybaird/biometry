@@ -18,6 +18,11 @@ require 'dry/monads'
 module ComposedReport
   extend Dry::Monads[:result]
 
+  # The two dispersion figures the 1991 paper carries, in the order they are
+  # reported: the equation (the abstract's 12.7%, and the default) first.
+  HADLOCK_VARIANTS = { hadlock_1991_equation: :equation,
+                       hadlock_1991_table: :table }.freeze
+
   REFERENCE_DATE = Date.new(2026, 8, 13)
   LMP_DATE = Date.new(2026, 1, 1)
   TRANSFER_DATE = Date.new(2026, 1, 17)
@@ -89,9 +94,16 @@ module ComposedReport
     equation_rows(computed, ga) + table_rows(computed, ga, sex, stratum)
   end
 
+  # Hadlock 1991 is one paper served as two charts: the abstract's 12.7% and
+  # the table's 13.3%, both reported because which is right is contested. Two
+  # rows, one manifest, one citation — the sources block deduplicates by
+  # citation string, so the paper is listed once for the two rows.
   def equation_rows(computed, ga)
+    weight = computed[:hadlock_bpd_hc_ac_fl]
     [row(:intergrowth21, computed[:intergrowth]) { |efw| intergrowth(efw, ga) },
-     row(:hadlock_1991, computed[:hadlock_bpd_hc_ac_fl]) { |efw| hadlock1991(efw, ga) }]
+     *HADLOCK_VARIANTS.map do |standard, variant|
+       row(standard, weight) { |efw| hadlock1991(efw, ga, variant) }
+     end]
   end
 
   def table_rows(computed, ga, sex, stratum)
@@ -109,7 +121,11 @@ module ComposedReport
     { standard: standard, citation: citation_for(standard), weight: weight, report: report }
   end
 
-  def citation_for(standard) = manifest(standard.to_s)[:source][:citation]
+  # Both Hadlock 1991 rows are read from the same manifest, because they are
+  # the same paper: only the dispersion figure differs.
+  def citation_for(standard) = manifest(manifest_name(standard))[:source][:citation]
+
+  def manifest_name(standard) = HADLOCK_VARIANTS.key?(standard) ? 'hadlock_1991' : standard.to_s
 
   def nichd_rows(weight, ga, stratum)
     fanned = row(:nichd, weight) { |efw| nichd(efw, ga, stratum) }
@@ -123,9 +139,10 @@ module ComposedReport
       .new(manifest: manifest('intergrowth21')).call(estimate: estimate, ga: ga)
   end
 
-  def hadlock1991(estimate, ga)
+  def hadlock1991(estimate, ga, variant = nil)
     Biometry::Services::Growth::Hadlock1991
-      .new(manifest: manifest('hadlock_1991')).call(estimate: estimate, ga: ga)
+      .new(manifest: manifest('hadlock_1991'), variant: variant)
+      .call(estimate: estimate, ga: ga)
   end
 
   def who(estimate, ga, sex)

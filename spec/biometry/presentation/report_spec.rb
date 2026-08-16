@@ -144,12 +144,13 @@ RSpec.describe Biometry::Presentation::Report do
 
   describe 'the growth rows' do
     it 'prints one row per chart, with NICHD fanned out to its four' do
-      expect(growth_rows.length).to eq(7)
+      expect(growth_rows.length).to eq(8)
     end
 
     it 'keeps the order it was handed rather than ranking the standards' do
-      expect(growth_rows.map { |line| line[/INTERGROWTH|Hadlock 1991|WHO|NICHD/] })
-        .to eq(['INTERGROWTH', 'Hadlock 1991', 'WHO', 'NICHD', 'NICHD', 'NICHD', 'NICHD'])
+      expect(growth_rows.map { |line| line[/INTERGROWTH|Hadlock 1991 \(\w+\)|WHO|NICHD/] })
+        .to eq(['INTERGROWTH', 'Hadlock 1991 (equation)', 'Hadlock 1991 (table)', 'WHO',
+                'NICHD', 'NICHD', 'NICHD', 'NICHD'])
     end
 
     it 'names the standard, weight, SD, centile, type and parameter set' do
@@ -171,8 +172,36 @@ RSpec.describe Biometry::Presentation::Report do
 
     # Three EFW values, not one: formula and chart are paired.
     it 'prints the weight each chart pairs with, not one weight for all four' do
-      expect(row('Hadlock 1991'))
-        .to eq('Hadlock 1991 1,852 g ±7.4% 35th reference (BPD+HC+AC+FL)')
+      expect(row('Hadlock 1991 (equation)'))
+        .to eq('Hadlock 1991 (equation) 1,852 g ±7.4% 34th reference (BPD+HC+AC+FL)')
+    end
+
+    # One paper, two dispersion figures, no erratum, and no way to choose
+    # between them from the paper itself. Both are printed, and the reader
+    # sees the gap the 2025-26 exchange is about: about one percentile near
+    # the threshold where it matters, from the same weight at the same week.
+    describe 'the two Hadlock 1991 rows' do
+      it 'prints the abstract\'s figure and the table\'s figure as two rows' do
+        labels = growth_rows.filter_map { |line| line[/Hadlock 1991 \(\w+\)/] }
+        expect(labels).to eq(['Hadlock 1991 (equation)', 'Hadlock 1991 (table)'])
+      end
+
+      it 'prints the table variant\'s reading of the same weight' do
+        expect(row('Hadlock 1991 (table)'))
+          .to eq('Hadlock 1991 (table) 1,852 g ±7.4% 35th reference (BPD+HC+AC+FL)')
+      end
+
+      it 'reads one weight at one week two ways, which is the disagreement' do
+        centiles = ['Hadlock 1991 (equation)', 'Hadlock 1991 (table)']
+                   .map { |label| row(label)[/\d+(?:st|nd|rd|th)\b/] }
+        expect(centiles.uniq.length).to eq(2)
+      end
+
+      it 'weighs both from the four-parameter model the chart pairs with' do
+        weights = ['Hadlock 1991 (equation)', 'Hadlock 1991 (table)']
+                  .map { |label| row(label)[/[\d,]+ g/] }
+        expect(weights).to eq(['1,852 g', '1,852 g'])
+      end
     end
 
     it 'prints three distinct weights across the four standards' do
@@ -182,11 +211,12 @@ RSpec.describe Biometry::Presentation::Report do
 
     # The SD is the EFW formula's. In a column of its own it reads as the
     # neighbouring percentile's, and the percentile's uncertainty is dominated
-    # by the chart's dispersion — 13.3% for Hadlock 1991 against the formula's
-    # 7.4%. So it is one field with the weight, with no alignment padding able
-    # to come between them.
+    # by the chart's dispersion — 12.7% or 13.3% for Hadlock 1991, depending
+    # which of the paper's two figures you read, against the formula's 7.4%.
+    # So it is one field with the weight, with no alignment padding able to
+    # come between them.
     it 'renders the weight and its SD as one field rather than two columns' do
-      expect(raw_row('Hadlock 1991')).to include('1,852 g ±7.4%')
+      expect(raw_row('Hadlock 1991 (equation)')).to include('1,852 g ±7.4%')
     end
 
     it 'keeps that field together on a row whose SD differs' do
@@ -206,7 +236,7 @@ RSpec.describe Biometry::Presentation::Report do
 
     it 'prints no percentile without the standard it came from' do
       ordinals = plain(report).lines.grep(/\d(st|nd|rd|th)\b/)
-      expect(ordinals.length).to eq(7)
+      expect(ordinals.length).to eq(8)
       expect(ordinals).to all(match(/^\s+(INTERGROWTH|Hadlock 1991|WHO|NICHD)/))
     end
 
@@ -225,9 +255,9 @@ RSpec.describe Biometry::Presentation::Report do
     end
 
     # 7.4% is the EFW formula's SD. The percentile's uncertainty is dominated
-    # by the chart's own dispersion — 13.3% for Hadlock 1991 — so a note that
-    # left the SD unattributed would imply a tighter number than this library
-    # can support.
+    # by the chart's own dispersion — 12.7% or 13.3% for Hadlock 1991 — so a
+    # note that left the SD unattributed would imply a tighter number than
+    # this library can support.
     it 'says the SD belongs to the weight formula' do
       expect(notes).to match(/formula/i)
     end
@@ -240,6 +270,14 @@ RSpec.describe Biometry::Presentation::Report do
       papers = %w[intergrowth21 hadlock_1991 who nichd]
       citations = papers.map { |name| ComposedReport.manifest(name)[:source][:citation] }
       expect(citations).to all(satisfy { |citation| report.include?(citation) })
+    end
+
+    # Two rows, one paper. The footer lists papers, not rows: a citation
+    # printed twice reads as two sources that happen to agree, when what the
+    # two rows show is one source disagreeing with itself.
+    it 'lists the paper behind both Hadlock 1991 rows once' do
+      citation = ComposedReport.manifest('hadlock_1991')[:source][:citation]
+      expect(plain(report).lines.count { |line| line.include?(citation) }).to eq(1)
     end
 
     # The weight and the chart come from different papers on three of the four
@@ -467,7 +505,14 @@ RSpec.describe Biometry::Presentation::Report do
     let(:growth) { ComposedReport.growth(ga: ga) }
 
     it 'keeps a row for every chart rather than printing a short table' do
-      expect(growth_rows.length).to eq(4)
+      expect(growth_rows.length).to eq(5)
+    end
+
+    # The two variants refuse the same window for the same reason, and each
+    # says so under its own name.
+    it 'names each Hadlock variant on its own refusal' do
+      expect([row('Hadlock 1991 (equation)'), row('Hadlock 1991 (table)')])
+        .to all(include('out of range'))
     end
 
     it 'prints the refusal, naming the window that chart was fitted over' do
@@ -535,7 +580,11 @@ RSpec.describe Biometry::Presentation::Report do
     # `above 97th` from the tables — and both mean "past the outermost thing I
     # can report". One spelling, in words.
     it 'prints a closed-form value that rounds to zero as below the first centile' do
-      expect(row('Hadlock 1991')).to include('below 1st')
+      expect(row('Hadlock 1991 (equation)')).to include('below 1st')
+    end
+
+    it 'says it the same way on the other dispersion figure' do
+      expect(row('Hadlock 1991 (table)')).to include('below 1st')
     end
 
     it 'uses no comparison symbols anywhere in the block' do
@@ -560,7 +609,11 @@ RSpec.describe Biometry::Presentation::Report do
     end
 
     it 'prints a closed-form value that rounds past a hundred as above the ninety-ninth' do
-      expect(row('Hadlock 1991')).to include('above 99th')
+      expect(row('Hadlock 1991 (equation)')).to include('above 99th')
+    end
+
+    it 'says it the same way on the other dispersion figure' do
+      expect(row('Hadlock 1991 (table)')).to include('above 99th')
     end
 
     it 'says it the same way on the other closed form' do
@@ -590,8 +643,8 @@ RSpec.describe Biometry::Presentation::Report do
         .to eq('WHO invalid input — sex: martian; available: combined, female, male')
     end
 
-    it 'leaves the other six rows reporting' do
-      expect(growth_rows.length).to eq(7)
+    it 'leaves the other seven rows reporting' do
+      expect(growth_rows.length).to eq(8)
     end
   end
 end

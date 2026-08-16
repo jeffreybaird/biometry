@@ -6,13 +6,17 @@ require 'csv'
 # is excluded from `rake verify` on purpose and runs only via `rake oracle`.
 #
 # A mismatch here has three possible causes the suite cannot distinguish: our
-# bug, their bug, or a decision we made (Hadlock dispersion, formula/chart
-# pairing, range windows). A failure is a question for a human, never a task
-# to make green. Do not "fix" code or fixtures from this file alone.
+# bug, their bug, or a decision we made (formula/chart pairing, range
+# windows). A failure is a question for a human, never a task to make green.
+# Do not "fix" code or fixtures from this file alone.
 # See docs/FIXTURES.md, tier 3.
 #
-# The Hadlock chart column is never compared on any row: FetalGPS uses the
-# abstract's 12.7% SD, we use the table-implied 13.3% (tier 4 divergence 1).
+# The Hadlock chart is compared now, and it is the equation variant that is
+# compared. FetalGPS computes `sd = 0.127 * mu` — the abstract's figure, which
+# is the figure our equation variant carries — so the two should agree to the
+# rounding, and where they do, an independent implementation corroborates our
+# arithmetic. The table variant has nothing here to compare against: FetalGPS
+# implements only the one figure, which is what the 2025-26 exchange is about.
 RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
   def self.rows
     @rows ||= CSV.read(File.expand_path('../fixtures/oracle_charts.csv', __dir__),
@@ -23,13 +27,27 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
   # sum is wrong the CSV and this spec have drifted apart, and every downstream
   # mismatch would be noise — fail here instead.
   #
-  # WHO is 4 short of the other two, and that deficit is the out-of-band
-  # exclusion, not an omission. The WHO female chart at 22w publishes only the
-  # 5th–95th columns; those four rows' EFW of 560.1 g sits above the 95th's
-  # 557 g, where FetalGPSX clamps and FetalGPSR extrapolates, so there is no
-  # single FetalGPS answer to agree with. We report "above the 95th" and skip
-  # the comparison. See docs/FIXTURES.md.
-  { 'compare_who' => 500, 'compare_nichd' => 504, 'compare_intergrowth' => 504 }
+  # Two flags are short of the full 504, and each deficit is an exclusion we
+  # chose rather than an omission.
+  #
+  # WHO is 4 short: the out-of-band exclusion. The WHO female chart at 22w
+  # publishes only the 5th–95th columns; those four rows' EFW of 560.1 g sits
+  # above the 95th's 557 g, where FetalGPSX clamps and FetalGPSR extrapolates,
+  # so there is no single FetalGPS answer to agree with. We report "above the
+  # 95th" and skip the comparison.
+  #
+  # Hadlock is 144 short: the GA-convention exclusion. Those are the four
+  # gestations in the grid that are not a whole number of weeks, across all 36
+  # sex/race combinations. Our adapter reads at the paper's own convention —
+  # decimal weeks to the nearest tenth — while FetalGPS uses days/7 unrounded,
+  # and on a steep stretch of the median curve that rounding alone moves the
+  # centile by up to 1.6. It is a decision of ours against a decision of
+  # theirs, not an arithmetic disagreement: at whole weeks the equation
+  # variant agrees with FetalGPS to within 0.05 centiles across the whole
+  # grid, which is what the remaining 360 rows corroborate. Never widen the
+  # tolerance to take the excluded rows back in. See docs/FIXTURES.md.
+  { 'compare_who' => 500, 'compare_nichd' => 504, 'compare_intergrowth' => 504,
+    'compare_hadlock' => 360 }
     .each do |flag, expected|
       total = rows.sum { |row| row[flag].to_i }
       next if total == expected
@@ -52,7 +70,10 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
       who: Biometry::Services::Growth::Who.new(manifest: manifest('who'),
                                                table: table('who')),
       intergrowth21:
-        Biometry::Services::Growth::Intergrowth.new(manifest: manifest('intergrowth21'))
+        Biometry::Services::Growth::Intergrowth.new(manifest: manifest('intergrowth21')),
+      hadlock_1991_equation:
+        Biometry::Services::Growth::Hadlock1991.new(manifest: manifest('hadlock_1991'),
+                                                    variant: :equation)
     }
   end
 
@@ -97,6 +118,31 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
       .value!.value
   end
 
+  # These rows carry no BPD, so FetalGPS reads its Hadlock chart from the
+  # three-parameter EFW. Our pairing guard requires a weight labelled with the
+  # four-parameter formula, so the estimate is relabelled — the *value* is the
+  # three-parameter one they used, the *label* is what gets past the guard.
+  # That deliberately bypasses the pairing check in order to isolate the chart
+  # arithmetic: this example is about the dispersion figure and the median
+  # equation, and comparing a chart read from two different weights would
+  # measure the pairing difference instead. The pairing difference itself is a
+  # separate decision, documented in docs/FIXTURES.md and enforced by the
+  # adapters' own specs.
+  def relabelled_estimate(row)
+    hadlock3_estimate(row).with(formula: :hadlock_bpd_hc_ac_fl)
+  end
+
+  # GA reaches the adapter as a GestationalAge and it converts to decimal
+  # weeks at the tenth, which is the paper's own convention. The rows where
+  # that differs from FetalGPS's unrounded days/7 carry `compare_hadlock: 0`
+  # and generate no example, so what is compared here is the chart arithmetic
+  # and nothing else. See the guard's comment above.
+  def hadlock_centile(row)
+    charts[:hadlock_1991_equation]
+      .call(estimate: relabelled_estimate(row), ga: ga_for(row))
+      .value!.value
+  end
+
   # FetalGPS rounds its EFW to 0.1 g before reading each chart and rounds the
   # centile to 0.1; 0.1 centiles absorbs that rounding and nothing else.
   def tolerance = 0.1
@@ -119,10 +165,16 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
       end
     end
 
-    next unless row['compare_intergrowth'] == '1'
+    if row['compare_intergrowth'] == '1'
+      it "#{description}: INTERGROWTH reads #{row['fgps_intergrowth']}" do
+        expect(intergrowth_centile(row)).to be_within(tolerance).of(row['fgps_intergrowth'].to_f)
+      end
+    end
 
-    it "#{description}: INTERGROWTH reads #{row['fgps_intergrowth']}" do
-      expect(intergrowth_centile(row)).to be_within(tolerance).of(row['fgps_intergrowth'].to_f)
+    next unless row['compare_hadlock'] == '1'
+
+    it "#{description}: the Hadlock 1991 equation variant reads #{row['fgps_hadlock']}" do
+      expect(hadlock_centile(row)).to be_within(tolerance).of(row['fgps_hadlock'].to_f)
     end
   end
 end

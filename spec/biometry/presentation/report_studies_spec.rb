@@ -56,11 +56,11 @@ RSpec.describe Biometry::Presentation::Report do
     end
 
     it 'prints every row of every study rather than choosing between them' do
-      expect(growth_rows.length).to eq(14)
+      expect(growth_rows.length).to eq(16)
     end
 
-    it 'keeps each study whole, seven rows under its own heading' do
-      expect([table(0).length, table(1).length]).to eq([7, 7])
+    it 'keeps each study whole, eight rows under its own heading' do
+      expect([table(0).length, table(1).length]).to eq([8, 8])
     end
   end
 
@@ -112,12 +112,12 @@ RSpec.describe Biometry::Presentation::Report do
                            ga: distant_ga)
     end
 
-    # Four rows, not seven. NICHD fans out to its four charts only when it
+    # Five rows, not eight. NICHD fans out to its four charts only when it
     # could read one; a gestation no chart covers is a single refusal with
     # nothing to fan out, which is what report_spec pins at 41 weeks. The
     # assertion here is that the study keeps a table at all.
     it 'keeps its table rather than dropping the study' do
-      expect(table(0).length).to eq(4)
+      expect(table(0).length).to eq(5)
     end
 
     it 'says on its rows why no chart could answer' do

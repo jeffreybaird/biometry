@@ -67,11 +67,27 @@ end
 
 BASE_NOTE = "three-parameter formula; matches what WHO, NICHD and INTERGROWTH pair with"
 
-def note_for(excluded)
-  return BASE_NOTE if excluded.empty?
+def note_for(excluded, hadlock_excluded: false)
+  suffixes = []
+  unless excluded.empty?
+    suffixes << "#{excluded.join(' and ')} comparison excluded: EFW outside the " \
+                "tabulated centile band, where FetalGPSX and FetalGPSR disagree with each other"
+  end
+  if hadlock_excluded
+    suffixes << "Hadlock comparison excluded: GA is not a whole week, and we read the " \
+                "chart at the paper's tenth-of-a-week convention while FetalGPS uses " \
+                "unrounded days/7 — a convention difference, not a chart disagreement"
+  end
+  ([BASE_NOTE] + suffixes).join("; ")
+end
 
-  "#{BASE_NOTE}; #{excluded.join(' and ')} comparison excluded: EFW outside the " \
-    "tabulated centile band, where FetalGPSX and FetalGPSR disagree with each other"
+# Our Hadlock adapter evaluates at decimal weeks rounded to the nearest tenth,
+# the convention the 1991 paper itself states; FetalGPS evaluates at unrounded
+# days/7. Where the two GA readings coincide the equation variant agrees with
+# FetalGPS to within 0.05 centiles across the whole grid; where they differ
+# the gap is the GA convention, so those rows are excluded from comparison.
+def hadlock_ga_matches?(gad)
+  ((gad / 0.7).round / 10.0) == (gad / 7.0)
 end
 
 def biometry(ga_weeks, scale)
@@ -125,13 +141,20 @@ GA_DAYS.each do |gad|
       excluded << "WHO" if cmp_who.zero?
       excluded << "NICHD" if cmp_nichd.zero?
 
+      # fgps_hadlock compares against our EQUATION variant, which implements
+      # the same 12.7% SD FetalGPS does. The table variant (13.3%) has no
+      # FetalGPS counterpart and is validated against Table 1 instead. The
+      # chart is closed form, so no band restriction applies — only the GA
+      # convention restriction (see hadlock_ga_matches?).
+      cmp_hadlock = hadlock_ga_matches?(gad) ? 1 : 0
       chart_rows << {
         case: "no_bpd", ga_days: gad, ac_mm: ac, hc_mm: hc, fl_mm: fl, bpd_mm: nil,
         sex: sex.empty? ? "combined" : sex, race: race,
         fgps_efw_g: r[:efw_g], fgps_who: r[:who], fgps_nichd: r[:nichd],
-        fgps_intergrowth: r[:intergrowth21],
+        fgps_intergrowth: r[:intergrowth21], fgps_hadlock: r[:hadlock],
         compare_who: cmp_who, compare_nichd: cmp_nichd, compare_intergrowth: 1,
-        note: note_for(excluded)
+        compare_hadlock: cmp_hadlock,
+        note: note_for(excluded, hadlock_excluded: cmp_hadlock.zero?)
       }
     end
   end
@@ -140,8 +163,9 @@ end
 EFW_COLS = %i[case ga_days ac_mm hc_mm fl_mm bpd_mm
               fgps_efw_g fgps_efw_formula fgps_efw_intergrowth_g].freeze
 CHART_COLS = %i[case ga_days ac_mm hc_mm fl_mm bpd_mm sex race fgps_efw_g
-                fgps_who fgps_nichd fgps_intergrowth
-                compare_who compare_nichd compare_intergrowth note].freeze
+                fgps_who fgps_nichd fgps_intergrowth fgps_hadlock
+                compare_who compare_nichd compare_intergrowth compare_hadlock
+                note].freeze
 
 { "oracle_efw.csv" => [EFW_COLS, efw_rows],
   "oracle_charts.csv" => [CHART_COLS, chart_rows] }.each do |name, (cols, data)|
@@ -155,6 +179,6 @@ end
 
 puts "  3-param EFW rows: #{efw_rows.count { |r| r[:fgps_efw_formula] == 'hadlock_hc_ac_fl' }}"
 puts "  4-param EFW rows: #{efw_rows.count { |r| r[:fgps_efw_formula] == 'hadlock_bpd_hc_ac_fl' }}"
-%i[compare_who compare_nichd compare_intergrowth].each do |c|
+%i[compare_who compare_nichd compare_intergrowth compare_hadlock].each do |c|
   puts "  #{c}: #{chart_rows.sum { |r| r[c] }}"
 end

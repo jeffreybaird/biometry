@@ -54,32 +54,64 @@ median:
     ma_squared: -0.00354
   r2_pct: 99.1
 
-dispersion:
-  model: additive_normal_pct_of_median
-  sd_pct: 13.3
-  sd_pct_source: back-calculated from the published Table 1 centiles
-  centile: "C(alpha) = median * (1 + Z(alpha) * 0.133)"
-  published_ratios:                # C / median, constant across all 31 weeks
-    p3:  0.750
-    p10: 0.830
-    p90: 1.170
-    p97: 1.250
+# The paper carries two irreconcilable dispersion figures and no erratum has
+# been issued. Which one to use is a contested clinical question (see the
+# known_issues entry below), so both are carried as variants and both are
+# reported. The centile form is the same for each:
+#   C(alpha) = median * (1 + Z(alpha) * sd_pct/100)
+variants:
+  equation:
+    id: hadlock_1991_equation
+    dispersion: { model: additive_normal_pct_of_median, sd_pct: 12.7 }
+    sd_pct_source: "stated in the 1991 abstract"
+    note: >
+      The method Roberts et al. 2025 recalculated and favour, and what
+      FetalGPS implements. Does not reproduce the paper's own Table 1.
+      That Roberts' "equation" uses the abstract's 12.7% is inferred, not
+      confirmed against the full text: the body-text formula gives only the
+      median and 12.7% is the paper's only stated SD. Re-check when the full
+      text is available; the figure lives only in this block.
+  table:
+    id: hadlock_1991_table
+    dispersion: { model: additive_normal_pct_of_median, sd_pct: 13.3 }
+    sd_pct_source: "back-calculated from the Table 1 centile ratios"
+    note: >
+      Reproduces the published Table 1 exactly: its centiles are median x
+      {0.750, 0.830, 1.170, 1.250} at every week. Roberts et al. report this
+      method underdiagnoses fetal growth restriction in 5.1% of patients
+      relative to the equation.
+    published_ratios:              # C / median, constant across all 31 weeks
+      p3:  0.750
+      p10: 0.830
+      p90: 1.170
+      p97: 1.250
+default: equation
 
 interpolation:
   between_weeks: not_applicable    # closed form; evaluate at any GA in range
   between_centiles: not_applicable
 
 known_issues:
-  - id: abstract_sd_contradicts_table
+  - id: dispersion_contested
     severity: high
     detail: >
-      The abstract states variance of +/-12.7% (1 SD). The published Table 1
-      centiles are exactly median x {0.750, 0.830, 1.170, 1.250} at every
-      week, which implies 13.3%, not 12.7%. Using 12.7% gives a 3rd centile of
-      1187 g at 30 weeks where the paper prints 1169 g. The Discussion and
-      Table 3 both say 13%, supporting 13.3% over the abstract.
-      IMPLEMENT 13.3%. Subject of an active 2025 AJOG exchange (Roberts et
-      al., "Revisiting the Hadlock 1991 population reference", and the reply).
+      The paper carries two irreconcilable dispersion figures. The abstract
+      states +/-12.7% (1 SD); the published Table 1 centiles are exactly
+      median x {0.750, 0.830, 1.170, 1.250} at every week, which implies
+      13.3%. Using 12.7% gives a 3rd centile of 1187 g at 30 weeks where the
+      paper prints 1169 g. No erratum has been issued; the 2025-26 papers are
+      re-analyses, not corrections. Two independent groups recalculated the
+      table from the body-text formula and favour the equation reading:
+      Roberts AW, Maroufy V, Salazar A, et al., "Revisiting the Hadlock 1991
+      population reference for estimated fetal weight," AJOG
+      2025;233:331.e1-11, who quantify that the table relative to the
+      equation would have underdiagnosed fetal growth restriction in 5.1% of
+      patients across 176,060 encounters, and Gleason et al. at NICHD, AJOG
+      2026;234:e59-e63. Which figure is right is therefore a contested
+      clinical question, not a transcription question. BOTH variants are
+      carried and reported (see `variants` above); the default is the
+      equation because two independent groups now argue for it. Do not
+      collapse the variants to one figure in either direction.
 
   - id: table1_week30_p97_typo
     severity: high
@@ -96,12 +128,16 @@ fixtures:
     expect_g: { 10: 35, 20: 331, 30: 1559, 40: 3619 }
     tolerance_pct: 1.2
 
+  # The centile fixtures are Table 1 values, so they anchor the TABLE variant
+  # only. The equation variant has no published centile table to anchor to.
   - name: "centiles at 32 weeks"
+    variant: table
     inputs: { ga_weeks: 32 }
     expect_g: { p3: 1465, p10: 1621, p50: 1953, p90: 2285, p97: 2441 }
     tolerance_g: 3
 
   - name: "centiles at 40 weeks"
+    variant: table
     inputs: { ga_weeks: 40 }
     expect_g: { p3: 2714, p10: 3004, p50: 3619, p90: 4234, p97: 4524 }
     tolerance_g: 3

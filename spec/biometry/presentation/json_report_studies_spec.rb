@@ -55,7 +55,7 @@ RSpec.describe Biometry::Presentation::JsonReport do
     end
 
     it 'carries every row of every study rather than choosing between them' do
-      expect(studies.map { |study| study['growth'].length }).to eq([7, 7])
+      expect(studies.map { |study| study['growth'].length }).to eq([8, 8])
     end
   end
 

@@ -16,8 +16,13 @@ NICHD_CSV = File.join(ROOT, "data/percentiles/nichd.csv")
 WHO_CSV   = File.join(ROOT, "data/percentiles/who.csv")
 OUT       = File.join(ROOT, "spec/fixtures/published.csv")
 
-OUR_HADLOCK_SD  = 0.133   # back-calculated from Hadlock 1991 Table 1
-THEIR_HADLOCK_SD = 0.127  # the abstract's figure, used by FetalGPS
+# Hadlock 1991 carries two irreconcilable dispersion figures and the library
+# reports both as chart variants (data/hadlock_1991.yml `variants`). The
+# table variant reproduces the paper's printed Table 1; the equation variant
+# is the abstract's figure, the reading Roberts et al. 2025 and Gleason et
+# al. 2026 favour, and what FetalGPS implements.
+TABLE_SD    = 0.133 # back-calculated from Hadlock 1991 Table 1 centile ratios
+EQUATION_SD = 0.127 # the abstract's figure
 
 rows = []
 def rows.add(tier, standard, note, inputs, expected)
@@ -64,10 +69,23 @@ HADLOCK_TABLE1 = {
 
 HADLOCK_TABLE1.each do |wk, values|
   [3, 10, 50, 90, 97].each_with_index do |c, i|
-    rows.add(1, "hadlock_1991", "published Table 1 value",
+    rows.add(1, "hadlock_1991_table", "published Table 1 value",
              { ga_weeks: wk, efw_g: values[i] },
              { expect_centile: c, tolerance: 0.6 })
   end
+end
+
+# The two dispersion variants must stay distinct: these rows pin the gap
+# between them, so neither can silently become the other. expect_centile is
+# the equation variant's reading; expect_delta is equation minus table.
+[[20, 300], [30, 1200], [32, 1600], [36, 2300], [40, 2900]].each do |wk, efw|
+  equation = FetalGPS.hadlock_centile(efw, wk.to_f, sd_pct: EQUATION_SD)
+  table    = FetalGPS.hadlock_centile(efw, wk.to_f, sd_pct: TABLE_SD)
+  rows.add(1, "hadlock_1991_variants",
+           "the equation (12.7%) and table (13.3%) variants must differ by this much",
+           { ga_weeks: wk, efw_g: efw },
+           { expect_centile: equation, expect_delta: (equation - table).round(1),
+             tolerance: 0.1 })
 end
 
 # ---- TIER 2: worked examples from the papers -------------------------------
@@ -79,19 +97,13 @@ rows.add(2, "intergrowth", "paper worked example, 3rd centile at 30w",
          { ga_weeks: 30, centile: 3 }, { expect_efw_g: 1106, tolerance: 1 })
 
 # ---- TIER 4: pinned divergences from FetalGPS ------------------------------
-# NEVER resolve one of these by changing the library to agree.
-[[20, 300], [30, 1200], [32, 1600], [36, 2300], [40, 2900]].each do |wk, efw|
-  ours   = FetalGPS.hadlock_centile(efw, wk.to_f, sd_pct: OUR_HADLOCK_SD)
-  theirs = FetalGPS.hadlock_centile(efw, wk.to_f, sd_pct: THEIR_HADLOCK_SD)
-  rows.add(4, "hadlock_1991",
-           "FetalGPS uses the abstract SD (12.7%); we use the table-implied 13.3%",
-           { ga_weeks: wk, efw_g: efw },
-           { expect_centile: ours, fetalgps_centile: theirs,
-             divergence: (ours - theirs).round(1), tolerance: 0.1 })
-end
+# Currently empty. The Hadlock dispersion rows that lived here collapsed when
+# the dispute was reframed: the equation variant now agrees with FetalGPS
+# exactly, so there is no divergence to pin — the hadlock_1991_variants rows
+# above pin the decision instead, which is the stronger test.
 
 COLUMNS = %i[tier standard note ga_weeks stratum efw_g ac_cm hc_cm centile
-             expect_centile expect_efw_g fetalgps_centile divergence tolerance].freeze
+             expect_centile expect_efw_g expect_delta tolerance].freeze
 
 FileUtils = nil # not needed; keep the dependency surface empty
 CSV.open(OUT, "w") do |csv|

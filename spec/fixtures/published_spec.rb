@@ -2,20 +2,25 @@
 
 require 'csv'
 
-# Fixture runner for published.csv — tiers 1, 2 and 4. See docs/FIXTURES.md
-# for the tier model. What a failure means differs by tier:
+# Fixture runner for published.csv — tiers 1 and 2. See docs/FIXTURES.md for
+# the tier model. What a failure means differs by tier:
 #
 #   tier 1 — published tables and equations. Ground truth; a failure is a bug
 #            in our code.
 #   tier 2 — worked examples printed in the papers. Same authority as tier 1.
-#   tier 4 — places we deliberately diverge from FetalGPS. A failure means the
-#            fixture is stale and must be re-derived from the source paper.
-#            NEVER change the code to match FetalGPS here: our values reproduce
-#            the published tables exactly and theirs do not.
+#
+# Tier 4 — places we deliberately diverge from FetalGPS — currently has no
+# rows. Its only entries were the Hadlock 1991 dispersion divergence, and that
+# has been reframed: 12.7% and 13.3% are no longer our figure against theirs
+# but two variants of one standard, both reported. Nothing is being tolerated
+# there any more, so the assertion moved to tier 1, where the equation
+# variant's centile and the gap between the two variants are ground truth read
+# off the paper's own numbers. The tier still exists in docs/FIXTURES.md and
+# takes rows again the moment we choose to differ from someone.
 #
 # Tier 3 lives in oracle_efw_spec.rb (3a, in verify) and
 # spec/oracle/chart_agreement_spec.rb (3b, `rake oracle` only).
-RSpec.describe 'published fixtures (tiers 1, 2, 4)' do
+RSpec.describe 'published fixtures (tiers 1, 2)' do
   def self.rows
     @rows ||= CSV.read(File.expand_path('published.csv', __dir__), headers: true)
   end
@@ -36,8 +41,17 @@ RSpec.describe 'published fixtures (tiers 1, 2, 4)' do
                                                        table: table('nichd')),
       'who' => Biometry::Services::Growth::Who.new(manifest: manifest('who'),
                                                    table: table('who')),
-      'hadlock_1991' =>
-        Biometry::Services::Growth::Hadlock1991.new(manifest: manifest('hadlock_1991')),
+      # One paper, two dispersion figures, both reported. The Table 1 rows
+      # anchor the table variant, because Table 1 is what it reproduces; the
+      # equation variant has no published table of its own, so it is asserted
+      # against the paper's stated 12.7% and against its distance from the
+      # other variant.
+      'hadlock_1991_equation' =>
+        Biometry::Services::Growth::Hadlock1991.new(manifest: manifest('hadlock_1991'),
+                                                    variant: :equation),
+      'hadlock_1991_table' =>
+        Biometry::Services::Growth::Hadlock1991.new(manifest: manifest('hadlock_1991'),
+                                                    variant: :table),
       'intergrowth21' =>
         Biometry::Services::Growth::Intergrowth.new(manifest: manifest('intergrowth21'))
     }
@@ -72,7 +86,8 @@ RSpec.describe 'published fixtures (tiers 1, 2, 4)' do
     case row['standard']
     when 'nichd' then nichd_centile(grams, ga, row['stratum'].to_sym)
     when 'who' then who_centile(grams, ga, row['stratum'])
-    when 'hadlock_1991' then hadlock_centile(grams, ga)
+    when 'hadlock_1991_table' then hadlock_centile(grams, ga, :table)
+    when 'hadlock_1991_equation' then hadlock_centile(grams, ga, :equation)
     end
   end
 
@@ -89,8 +104,8 @@ RSpec.describe 'published fixtures (tiers 1, 2, 4)' do
       .value!.value
   end
 
-  def hadlock_centile(grams, ga)
-    charts['hadlock_1991']
+  def hadlock_centile(grams, ga, variant)
+    charts["hadlock_1991_#{variant}"]
       .call(estimate: estimate(grams, formula: :hadlock_bpd_hc_ac_fl), ga: ga)
       .value!.value
   end
@@ -120,8 +135,14 @@ RSpec.describe 'published fixtures (tiers 1, 2, 4)' do
     self.class.weight_intergrowth.call(scan).value!.value
   end
 
+  # The variant rows are tier 1 too, but they assert a pair of readings rather
+  # than one, so they generate their own examples below.
+  def self.variant_rows = tier(1).select { |row| row['standard'] == 'hadlock_1991_variants' }
+
+  def self.chart_rows = tier(1) - variant_rows
+
   describe 'tier 1 — published tables and equations (a failure is our bug)' do
-    tier(1).each do |row|
+    chart_rows.each do |row|
       it "#{row['standard']}/#{row['stratum'] || 'unstratified'}: #{row['efw_g']} g at " \
          "#{row['ga_weeks']}w reads as the #{row['expect_centile']} centile " \
          "(#{row['note']})" do
@@ -149,24 +170,30 @@ RSpec.describe 'published fixtures (tiers 1, 2, 4)' do
     end
   end
 
-  # A red example here means the fixture no longer matches a re-derivation
-  # from the source paper. Re-derive it. Do not move our value toward
-  # FetalGPS's: their 12.7% SD contradicts Hadlock's own Table 1; ours
-  # reproduces it at every centile and week. docs/FIXTURES.md, tier 4.
-  describe 'tier 4 — deliberate divergences from FetalGPS ' \
-           '(a failure means a stale fixture, never a code change)' do
-    tier(4).each do |row|
-      it "hadlock_1991: #{row['efw_g']} g at #{row['ga_weeks']}w is our " \
-         "#{row['expect_centile']} centile where FetalGPS says " \
-         "#{row['fetalgps_centile']} (#{row['note']})" do
-        expect(centile_of(row))
+  # Tier 1 as well, and the rows that hold the decision itself: the two
+  # dispersion figures are two variants of one standard, and neither may
+  # quietly become the other. Each row asserts the equation variant's centile
+  # and the gap between the variants at the same weight, so collapsing them —
+  # in either direction — fails here whichever figure the collapse chose.
+  #
+  # The gap is negative throughout the lower tail: the narrower SD puts a
+  # small fetus lower. That is the direction Roberts et al. quantify as 5.1%
+  # of patients, and it is pinned as a signed number rather than a magnitude.
+  describe 'tier 1 — the two Hadlock 1991 variants stay distinct ' \
+           '(a failure means one has become the other)' do
+    variant_rows.each do |row|
+      it "hadlock_1991: #{row['efw_g']} g at #{row['ga_weeks']}w reads as the " \
+         "#{row['expect_centile']} centile on the equation variant" do
+        expect(hadlock_centile(row['efw_g'].to_f, weeks(row['ga_weeks']), :equation))
           .to be_within(row['tolerance'].to_f).of(row['expect_centile'].to_f)
       end
 
-      it "hadlock_1991: the recorded gap at #{row['ga_weeks']}w stays " \
-         "#{row['divergence']} centiles wide" do
-        expect(row['expect_centile'].to_f - row['fetalgps_centile'].to_f)
-          .to be_within(0.001).of(row['divergence'].to_f)
+      it "hadlock_1991: at #{row['ga_weeks']}w the equation variant sits " \
+         "#{row['expect_delta']} centiles from the table variant" do
+        grams = row['efw_g'].to_f
+        ga = weeks(row['ga_weeks'])
+        delta = hadlock_centile(grams, ga, :equation) - hadlock_centile(grams, ga, :table)
+        expect(delta).to be_within(row['tolerance'].to_f).of(row['expect_delta'].to_f)
       end
     end
   end

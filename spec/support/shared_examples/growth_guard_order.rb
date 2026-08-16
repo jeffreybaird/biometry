@@ -30,6 +30,11 @@
 #   manifest:    the manifest file under data/
 #   table:       the CSV under data/, for the two table standards, else nil
 #   stratum_key: :stratum, :sex, or nil for the two unstratified charts
+#   variant:     the chart variant, for the one standard served as two, else
+#                nil. Hadlock 1991 carries two irreconcilable dispersion
+#                figures and reports both, and the guard order is a property
+#                of the adapter rather than of the figure it read, so each
+#                variant is put through this group in its own right.
 #
 # An adapter with no stratum gets the examples that make sense for it and
 # none of the ones that do not.
@@ -41,9 +46,10 @@ RSpec.shared_examples 'a chart that answers its guards in order' do |config|
     config[:table] && Biometry::ReferenceData.load_table(Biometry::DATA_ROOT / config[:table])
   end
   let(:service) do
-    next described_class.new(manifest: manifest) if table.nil?
+    next described_class.new(manifest: manifest, table: table) unless table.nil?
+    next described_class.new(manifest: manifest, variant: config[:variant]) if config[:variant]
 
-    described_class.new(manifest: manifest, table: table)
+    described_class.new(manifest: manifest)
   end
   let(:stratum_key) { config[:stratum_key] }
 

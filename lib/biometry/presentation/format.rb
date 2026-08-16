@@ -9,7 +9,9 @@ module Biometry
     # the same thing two ways — "28d cycle" written twice is two chances to
     # drift.
     module Format
-      STANDARDS = { intergrowth21: 'INTERGROWTH-21st', hadlock_1991: 'Hadlock 1991',
+      STANDARDS = { intergrowth21: 'INTERGROWTH-21st',
+                    hadlock_1991_equation: 'Hadlock 1991 (equation)',
+                    hadlock_1991_table: 'Hadlock 1991 (table)',
                     nichd: 'NICHD', who: 'WHO' }.freeze
       DERIVATIONS = { lmp: 'LMP', transfer: 'Transfer', crl: 'CRL',
                       biometry: 'Biometry' }.freeze

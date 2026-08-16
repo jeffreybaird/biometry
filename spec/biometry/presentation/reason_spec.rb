@@ -53,7 +53,7 @@ RSpec.describe Biometry::Presentation::Reason do
     end
 
     it 'renders a whole-numbered gestation without its decimal place' do
-      failure = [:out_of_range, { standard: :hadlock_1991, ga_weeks: 41.0,
+      failure = [:out_of_range, { standard: :hadlock_1991_equation, ga_weeks: 41.0,
                                   valid_range: [10, 40] }]
       expect(described_class.call(failure)).to end_with('given 41')
     end
