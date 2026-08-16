@@ -126,6 +126,45 @@ RSpec.describe Biometry::Context do
     end
   end
 
+  # The whole report, in one call, from data/ read once. What a web request
+  # actually asks for — and the answer must be the builder's answer, wired on
+  # this Context's manifests and tables, not a composition assembled here.
+  describe '#report' do
+    let(:request) do
+      { scans: [scan], ga: Biometry::GestationalAge.from(weeks: 32, days: 0),
+        at: Date.new(2026, 8, 13), lmp: Date.new(2026, 1, 1), cycle_length: 28,
+        transfer_date: Date.new(2026, 1, 15), embryo_day: 5, sex: :female }
+    end
+    let(:directly) do
+      Biometry::Services::Report::Builder
+        .new(manifests: context.manifests, tables: context.tables).call(**request)
+    end
+
+    def edds(report) = report.dating.transform_values { |each| each.success? && each.value!.edd }
+
+    def standards(report) = report.studies.flat_map { |study| study.growth.map { |r| r[:standard] } }
+
+    it 'answers with the report the builder builds' do
+      expect(context.report(**request)).to be_a(Biometry::Report)
+    end
+
+    it 'dates the pregnancy as the builder dates it' do
+      expect(edds(context.report(**request))).to eq(edds(directly))
+    end
+
+    it 'reads the same charts, study for study' do
+      expect(standards(context.report(**request))).to eq(standards(directly))
+    end
+
+    it 'says whether anything could be reported, as the builder says it' do
+      expect(context.report(**request).reportable?).to eq(directly.reportable?)
+    end
+
+    it 'carries no redating unless one was asked for' do
+      expect(context.report(**request).redating).to be_nil
+    end
+  end
+
   # A Context outlives a request. Two callers asking the same question of the
   # same Context must get the same answer, whichever asked first.
   describe 'asking the same question twice' do

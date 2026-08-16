@@ -15,16 +15,31 @@ module Biometry
       @manifests = manifests.freeze
       @tables = tables.freeze
       @dropped = dropped.freeze
-      @charts = Services::Growth::Charts.new(manifests: manifests, tables: tables).call
-      @catalog = Services::Catalog.new(manifests: manifests).call
-      @dating = Services::Dating::AllDerivations.new
-      @weights = Services::Weight::AllFormulas.new(hadlock: manifests[:hadlock_1985],
-                                                   intergrowth: manifests[:intergrowth21])
+      wire
       freeze
     end
 
     def dating(**request) = @dating.call(**request)
 
     def weights(scan) = @weights.call(scan)
+
+    def report(**request) = @builder.call(**request)
+
+    private
+
+    # Every service is built once, before the freeze: a Context outlives a
+    # request and is shared across threads, so nothing may be wired lazily.
+    def wire
+      @charts = Services::Growth::Charts.new(manifests: manifests, tables: tables).call
+      @catalog = Services::Catalog.new(manifests: manifests).call
+      @dating = Services::Dating::AllDerivations.new
+      @weights = weight_service
+      @builder = Services::Report::Builder.new(manifests: manifests, tables: tables)
+    end
+
+    def weight_service
+      Services::Weight::AllFormulas.new(hadlock: manifests[:hadlock_1985],
+                                        intergrowth: manifests[:intergrowth21])
+    end
   end
 end

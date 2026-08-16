@@ -101,51 +101,26 @@ module Biometry
       def flags = ReportOptions::MEASUREMENTS.map { |kind| "--#{kind}" }.join(', ')
 
       def produce(options, scans)
-        dating = dating_for(options)
-        studies = studied(scans, options)
-        stdout.puts(render(dating, studies, options))
-        reportable?(dating, studies) ? Main::EXIT_OK : Main::EXIT_FAILURE
+        report = context.report(**composed(options, scans))
+        stdout.puts(render(report, options))
+        report.reportable? ? Main::EXIT_OK : Main::EXIT_FAILURE
       end
 
-      def studied(scans, options)
-        rows = Services::Report::GrowthRows.new(manifests: manifests, tables: tables)
-        Services::Report::Studies.new(rows: rows)
-                                 .call(scans, ga: options[:ga], at: options[:at],
-                                              sex: options[:sex], stratum: options[:stratum])
+      # Flag names become the builder's named inputs. The all-or-nothing
+      # redating trio has already been enforced by ReportOptions.
+      def composed(options, scans)
+        { scans: scans, ga: options[:ga], at: options[:at],
+          lmp: options[:lmp], cycle_length: options[:cycle],
+          transfer_date: options[:transfer], embryo_day: options[:embryo_day],
+          sex: options[:sex], stratum: options[:stratum],
+          established_edd: options[:established_edd],
+          established_by: options[:established_by], proposed_edd: options[:scan_edd] }
       end
 
-      # Absent unless all three flags arrived, which ReportOptions has already
-      # made an all-or-nothing choice.
-      def redating_for(options)
-        return nil unless options[:established_edd]
+      def render(report, options)
+        return Presentation::JsonReport.new.call(**report.to_h) if options[:json]
 
-        Services::Dating::Redating.new(manifest: manifests[:acog_redating]).call(
-          established_edd: options[:established_edd], established_by: options[:established_by],
-          proposed_edd: options[:scan_edd], reference_date: options[:at]
-        )
-      end
-
-      def dating_for(options)
-        Services::Dating::AllDerivations.new.call(
-          reference_date: options[:at], lmp: options[:lmp], cycle_length: options[:cycle],
-          transfer_date: options[:transfer], embryo_day: options[:embryo_day]
-        ).value!
-      end
-
-      def render(dating, studies, options)
-        arguments = { dating: dating, ga: options[:ga], studies: studies,
-                      redating: redating_for(options) }
-        return Presentation::JsonReport.new.call(**arguments) if options[:json]
-
-        Presentation::Report.new(tty: stdout.tty?).call(**arguments)
-      end
-
-      # Exit 1 only when nothing at all could be reported. The refusals are the
-      # result and still print; CRL and biometry always refuse, so any other
-      # rule would make exit 1 permanent.
-      def reportable?(dating, studies)
-        rows = studies.flat_map(&:growth)
-        dating.values.any?(&:success?) || rows.any? { |row| row[:report].success? }
+        Presentation::Report.new(tty: stdout.tty?).call(**report.to_h)
       end
 
       def scan_of(options)
