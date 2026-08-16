@@ -91,6 +91,41 @@ RSpec.describe Biometry::Context do
     end
   end
 
+  # What a web app enumerates before a user has supplied anything. The Context
+  # holds it so data/ is described once per process, but it describes the same
+  # thing the service does — a catalog assembled here would be a second answer.
+  describe '#catalog' do
+    let(:directly) { Biometry::Services::Catalog.new(manifests: context.manifests).call }
+
+    it 'lists the standards the service lists' do
+      expect(context.catalog.growth_standards.map(&:id))
+        .to match_array(directly.growth_standards.map(&:id))
+    end
+
+    it 'cites each standard as the service cites it' do
+      expect(context.catalog.growth_standards.map { |entry| [entry.id, entry.citation] })
+        .to match_array(directly.growth_standards.map { |entry| [entry.id, entry.citation] })
+    end
+
+    it 'lists the formulas the service lists' do
+      expect(context.catalog.efw_formulas.map(&:id))
+        .to match_array(directly.efw_formulas.map(&:id))
+    end
+
+    it 'lists the dating methods the service lists, cited alike' do
+      expect(context.catalog.dating_methods.map { |entry| [entry.derivation, entry.citation] })
+        .to match_array(directly.dating_methods.map { |entry| [entry.derivation, entry.citation] })
+    end
+
+    it 'describes the redating policy as the service describes it' do
+      expect(context.catalog.redating_policy.citation).to eq(directly.redating_policy.citation)
+    end
+
+    it 'is frozen, being a description of data/ rather than a scratch object' do
+      expect(context.catalog).to be_frozen
+    end
+  end
+
   # A Context outlives a request. Two callers asking the same question of the
   # same Context must get the same answer, whichever asked first.
   describe 'asking the same question twice' do
@@ -113,6 +148,11 @@ RSpec.describe Biometry::Context do
     it 'serves the same charts, and still frozen after a caller has held them' do
       first = context.charts
       expect([context.charts.keys, context.charts.frozen?]).to eq([first.keys, true])
+    end
+
+    it 'describes itself the same way, the catalog being memoized not rebuilt' do
+      first = context.catalog
+      expect(context.catalog.growth_standards.map(&:id)).to eq(first.growth_standards.map(&:id))
     end
   end
 end

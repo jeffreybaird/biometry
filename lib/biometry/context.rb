@@ -9,13 +9,14 @@ module Biometry
   # No clinical behaviour is decided here — every method hands the question to
   # the service that owns it.
   class Context
-    attr_reader :manifests, :tables, :dropped, :charts
+    attr_reader :manifests, :tables, :dropped, :charts, :catalog
 
     def initialize(manifests:, tables:, dropped:)
       @manifests = manifests.freeze
       @tables = tables.freeze
       @dropped = dropped.freeze
       @charts = Services::Growth::Charts.new(manifests: manifests, tables: tables).call
+      @catalog = Services::Catalog.new(manifests: manifests).call
       @dating = Services::Dating::AllDerivations.new
       @weights = Services::Weight::AllFormulas.new(hadlock: manifests[:hadlock_1985],
                                                    intergrowth: manifests[:intergrowth21])
