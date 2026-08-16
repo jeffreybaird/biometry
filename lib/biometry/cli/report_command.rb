@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require_relative 'growth_rows'
 require_relative 'message_source'
-require_relative 'studies'
 require_relative 'report_help'
 require_relative 'report_options'
 
@@ -109,9 +107,10 @@ module Biometry
       end
 
       def studied(scans, options)
-        rows = GrowthRows.new(manifests: manifests, tables: tables)
-        Studies.new(rows: rows).call(scans, ga: options[:ga], at: options[:at],
-                                            sex: options[:sex], stratum: options[:stratum])
+        rows = Services::Report::GrowthRows.new(manifests: manifests, tables: tables)
+        Services::Report::Studies.new(rows: rows)
+                                 .call(scans, ga: options[:ga], at: options[:at],
+                                              sex: options[:sex], stratum: options[:stratum])
       end
 
       # Absent unless all three flags arrived, which ReportOptions has already

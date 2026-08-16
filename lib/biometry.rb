@@ -40,6 +40,9 @@ require_relative 'biometry/services/growth/intergrowth'
 require_relative 'biometry/services/growth/nichd'
 require_relative 'biometry/services/growth/who'
 require_relative 'biometry/services/growth/who/centiles'
+require_relative 'biometry/services/growth/charts'
+require_relative 'biometry/services/report/growth_rows'
+require_relative 'biometry/services/report/studies'
 
 module Biometry
   ROOT = Pathname.new(File.expand_path('..', __dir__)).freeze
