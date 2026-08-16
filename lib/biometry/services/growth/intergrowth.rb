@@ -26,6 +26,39 @@ module Biometry
 
         STANDARD = :intergrowth21
 
+        # Table 2's LMS parameter curves, one place for both directions
+        # through the standard: percentile-of-weight here, weight-at-centile
+        # in Centiles. All coefficients come from the manifest's
+        # `lms.*.coefficients` blocks; GA is exact decimal weeks.
+        module Lms
+          module_function
+
+          def lambda_at(lms, ga)
+            coefficients = lms[:lambda][:coefficients]
+            coefficients[:intercept] +
+              (coefficients[:ga_inv_sq] * (ga**-2)) +
+              (coefficients[:ga_cubed] * (ga**3))
+          end
+
+          def mu(lms, ga) = cubic_with_log(lms[:mu][:coefficients], ga)
+
+          # The triple every evaluation needs, in the order the acronym names.
+          def at(lms, ga) = [lambda_at(lms, ga), mu(lms, ga), sigma(lms, ga)]
+
+          def sigma(lms, ga)
+            coefficients = lms[:sigma][:coefficients]
+            coefficients[:scale] * cubic_with_log(coefficients, ga)
+          end
+
+          # mu and sigma share a shape: an intercept, a GA-cubed term, and a
+          # GA-cubed term weighted by log GA.
+          def cubic_with_log(coefficients, ga)
+            coefficients[:intercept] +
+              (coefficients[:ga_cubed] * (ga**3)) +
+              (coefficients[:ga_cubed_log] * (ga**3) * Math.log(ga))
+          end
+        end
+
         def initialize(manifest:)
           @lms = manifest[:lms]
           @range = manifest[:valid_ga_weeks]
@@ -68,34 +101,10 @@ module Biometry
         # because the standard states it.
         def z_score(grams, weeks)
           y = Math.log(grams)
-          skew = lambda_at(weeks)
-          median = mu(weeks)
-          spread = sigma(weeks)
+          skew, median, spread = Lms.at(lms, weeks)
           return Math.log(y / median) / spread if skew.zero?
 
           (((y / median)**skew) - 1) / (spread * skew)
-        end
-
-        def lambda_at(ga)
-          coefficients = lms[:lambda][:coefficients]
-          coefficients[:intercept] +
-            (coefficients[:ga_inv_sq] * (ga**-2)) +
-            (coefficients[:ga_cubed] * (ga**3))
-        end
-
-        def mu(ga) = cubic_with_log(lms[:mu][:coefficients], ga)
-
-        def sigma(ga)
-          coefficients = lms[:sigma][:coefficients]
-          coefficients[:scale] * cubic_with_log(coefficients, ga)
-        end
-
-        # mu and sigma share a shape: an intercept, a GA-cubed term, and a
-        # GA-cubed term weighted by log GA.
-        def cubic_with_log(coefficients, ga)
-          coefficients[:intercept] +
-            (coefficients[:ga_cubed] * (ga**3)) +
-            (coefficients[:ga_cubed_log] * (ga**3) * Math.log(ga))
         end
 
         def provenance

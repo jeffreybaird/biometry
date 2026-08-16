@@ -28,6 +28,19 @@ module Biometry
       class Hadlock1991
         include Dry::Monads[:result]
 
+        # The 1991 median curve, one place for both directions through the
+        # standard: percentile-of-weight above, weight-at-centile in Centiles.
+        # MA is menstrual age in decimal weeks.
+        module Median
+          module_function
+
+          def at(coefficients, weeks)
+            Math.exp(coefficients[:intercept] +
+                     (coefficients[:ma] * weeks) +
+                     (coefficients[:ma_squared] * (weeks**2)))
+          end
+        end
+
         # `variant: nil` resolves to the manifest's stated default rather
         # than to an ordering accident. An unknown variant raises: that is a
         # developer error, not a runtime condition for a caller to branch on.
@@ -88,12 +101,7 @@ module Biometry
           (grams - centre) / (centre * (sd_pct / 100.0))
         end
 
-        # MA is menstrual age in decimal weeks.
-        def median(weeks)
-          Math.exp(coefficients[:intercept] +
-                   (coefficients[:ma] * weeks) +
-                   (coefficients[:ma_squared] * (weeks**2)))
-        end
+        def median(weeks) = Median.at(coefficients, weeks)
 
         def provenance
           Provenance.new(standard: standard, citation: source[:citation], formula: paired,
