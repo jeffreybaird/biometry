@@ -35,10 +35,11 @@ bundle exec exe/biometry report --ga 32w0d \
 ```
 Growth  GA 32w0d  BPD 8.1  HC 29.6  AC 27.9  FL 6.1 cm
 
-  INTERGROWTH-21st  1,799 g —      57th  prescriptive  (AC+HC)
-  Hadlock 1991      1,881 g ±7.4%  39th  reference     (BPD+HC+AC+FL)
-  WHO (female)      1,878 g ±7.5%  53rd  reference     (HC+AC+FL)
-  NICHD (white)     1,878 g ±7.5%  38th  prescriptive  (HC+AC+FL)
+  INTERGROWTH-21st         1,799 g —      57th  prescriptive  (AC+HC)
+  Hadlock 1991 (equation)  1,881 g ±7.4%  39th  reference     (BPD+HC+AC+FL)
+  Hadlock 1991 (table)     1,881 g ±7.4%  39th  reference     (BPD+HC+AC+FL)
+  WHO (female)             1,878 g ±7.5%  53rd  reference     (HC+AC+FL)
+  NICHD (white)            1,878 g ±7.5%  38th  prescriptive  (HC+AC+FL)
 ```
 
 The four measurement flags are the standard ultrasound biometry, in
@@ -82,17 +83,23 @@ That validation surfaced the following discrepancies. Each is deliberate on
 our side and pinned by fixtures, so a future change that silently re-aligns
 us with FetalGPS will fail the suite.
 
-1. **Hadlock 1991 dispersion: we use 13.3%, FetalGPS uses 12.7%.** The
+1. **Hadlock 1991's dispersion figure is contested, so we serve both.** The
    Hadlock 1991 growth chart describes its spread as a fixed percentage of
-   the median weight. FetalGPS takes the figure printed in the paper's
-   abstract (12.7%). Ours is back-calculated from the paper's own Table 1,
-   whose percentile columns are exactly the median multiplied by
-   {0.750, 0.830, 1.170, 1.250} at every week — which implies 13.3%. Our
-   value reproduces the published table at every percentile and every
-   gestational age; theirs matches only at the median. The effect is about
-   one percentile near the thresholds clinicians care about most. The
-   paper's own discussion section and Table 3 both say 13%, supporting the
-   table over the abstract.
+   the median weight — and the paper carries two irreconcilable figures for
+   it, with no erratum ever issued. The abstract says 12.7%; the paper's own
+   Table 1 percentile columns imply 13.3%. Two independent research groups
+   (Roberts et al., American Journal of Obstetrics and Gynecology 2025;
+   Gleason et al., same journal, 2026) recalculated the table and favour the
+   abstract's figure, with Roberts reporting that the table method would
+   have underdiagnosed fetal growth restriction in 5.1% of patients across
+   176,060 ultrasound encounters. FetalGPS implements the abstract's figure.
+   Because the choice moves results by about one percentile near the
+   thresholds clinicians care about most, this library refuses to pick a
+   side silently: every report carries two rows, `Hadlock 1991 (equation)`
+   (12.7%, the default and the reading the recent literature favours) and
+   `Hadlock 1991 (table)` (13.3%, which reproduces the published Table 1
+   exactly) — the same treatment disagreements *between* standards get,
+   applied to a disagreement inside one.
 
 2. **Formula-and-chart pairing.** Each growth chart was built from weights
    computed by one specific formula ([why this matters](docs/FORMULAS.md#why-each-chart-is-tied-to-one-weight-formula)).
@@ -112,17 +119,22 @@ us with FetalGPS will fail the suite.
    oracle fixtures this affects are excluded from the chart-agreement
    comparison and marked in `spec/fixtures/oracle_charts.csv`.
 
-4. **Gestational-age ranges.** FetalGPS answers outside the ranges the
-   source papers published or fitted — for example NICHD at 10–42 weeks
-   against a model fitted only from week 15 to 40. We refuse with
-   `out_of_range` there.
+4. **Gestational-age ranges and conventions.** FetalGPS answers outside the
+   ranges the source papers published or fitted — for example NICHD at
+   10–42 weeks against a model fitted only from week 15 to 40. We refuse
+   with `out_of_range` there. And for the Hadlock 1991 chart we read
+   gestational age as decimal weeks rounded to the nearest tenth, the
+   paper's own stated convention, while FetalGPS uses unrounded days
+   divided by seven — worth up to about 1.6 percentiles at ages that are
+   not a whole week.
 
 5. **Defects in the source papers, encoded in `data/`.** Hadlock 1991's
    Table 1 prints 1,649 g for the 97th percentile at week 30 — impossibly
    below its own 90th percentile of 1,824 g; the ratio-implied 1,949 g is
    used, confirmed against the page scan. INTERGROWTH-21st's worked Z-score
-   (0.5617023) does not follow from its own published equations (the correct
-   value is 0.5544) and is not used as a fixture.
+   (0.5617023) does not follow from its own published equations — our
+   re-derivation gives 0.5544, which has not been independently verified —
+   so neither value is used as a fixture.
 
 Because a fixture failure means different things per tier — our bug, their
 bug, or a decision we made — the FetalGPS chart-agreement suite runs only

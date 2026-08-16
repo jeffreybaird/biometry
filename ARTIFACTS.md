@@ -166,7 +166,7 @@ wrong about it.**
 | Standard | Method | Dispersion model | Range | Strata |
 |---|---|---|---|---|
 | INTERGROWTH-21st | equation | LMS, closed form | 22–40 | none |
-| Hadlock 1991 | equation | median × constant 13.3% | 10–40 | none |
+| Hadlock 1991 | equation | median × constant %, contested: 12.7 (abstract) vs 13.3 (Table 1) — both served as variants | 10–40 | none |
 | NICHD | table | 3 fitted, 4 log-normally derived | 15–40 | race/ethnicity (4) |
 | WHO | table | quantile regression, each centile independent | 14–40 | fetal sex (3) |
 
@@ -258,7 +258,12 @@ What has actually been checked, so the reviewer knows what not to re-litigate.
 - Hadlock 1991 median equation reproduces its own Table 1 to within 0.02%
   from 20 weeks on.
 - Hadlock 1991 table centiles are exactly median × {0.750, 0.830, 1.170,
-  1.250}, implying SD 13.3%.
+  1.250}, implying SD 13.3%. (That the *table* implies 13.3% is verified
+  arithmetic. Whether the table or the abstract's 12.7% should be used is a
+  contested clinical question — Roberts AJOG 2025;233:331.e1-11 and Gleason
+  AJOG 2026;234:e59-e63 favour the abstract's figure, no erratum exists —
+  so both are served as chart variants; see `data/hadlock_1991.yml`
+  `dispersion_contested`.)
 - NICHD Table 2: centiles monotonic in every row, every column monotonic in GA.
 - WHO Tables 11/14/15: same checks pass; 37-week sex gap is exactly 84 g as
   stated; Table 16's WHO rows match Table 11 at all ten checkpoints.

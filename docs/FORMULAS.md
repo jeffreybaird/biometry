@@ -212,10 +212,10 @@ ln(median weight in grams) = 0.578 + 0.332·MA − 0.00354·MA²
 ```
 
 The spread is a fixed percentage of the median: one standard deviation is
-**13.3%** of the median weight, and any percentile is
+some percentage `s` of the median weight, and any percentile is
 
 ```
-weight at percentile α = median · (1 + Zα · 0.133)
+weight at percentile α = median · (1 + Zα · s/100)
 ```
 
 where `Zα` is the Z-score for that percentile (for the 3rd percentile,
@@ -223,10 +223,20 @@ Zα ≈ −1.88). To place a weight, the library computes the median at that age
 asks how many standard deviations the weight sits from it, and converts to a
 percentile. Valid range: 10–40 weeks.
 
-Note the 13.3%: the paper's abstract says 12.7%, but its own Table 1 centiles
-are exactly the median multiplied by {0.750, 0.830, 1.170, 1.250} at every
-single week, which implies 13.3% — and the paper's discussion section agrees.
-This is one of the documented [discrepancies with FetalGPS](../README.md#validation-against-fetalgps).
+**What is `s`? The paper gives two answers, and the library reports both.**
+The abstract states 12.7%. The paper's own Table 1 centiles are exactly the
+median multiplied by {0.750, 0.830, 1.170, 1.250} at every single week,
+which implies 13.3%. No erratum has ever been issued, and two independent
+research groups who recalculated the table in 2025–26 (Roberts et al.;
+Gleason et al., both in the American Journal of Obstetrics and Gynecology)
+favour the abstract's figure — Roberts reporting that the table method would
+have underdiagnosed fetal growth restriction in 5.1% of patients relative to
+the equation method. Because the choice shifts results by about one
+percentile near common decision thresholds, every report carries two Hadlock
+1991 rows: **`(equation)`**, using 12.7%, the default; and **`(table)`**,
+using 13.3%, which reproduces the printed Table 1 exactly. Both figures live
+in `data/hadlock_1991.yml` under `variants`, nowhere else, so a future
+correction is a one-file data change.
 
 ### INTERGROWTH-21st — an equation chart with three dials
 
@@ -307,7 +317,7 @@ So the pairing is enforced:
 
 | Growth chart | Weight formula it was built on |
 |---|---|
-| Hadlock 1991 | Hadlock four-parameter (BPD + HC + AC + FL) |
+| Hadlock 1991 (both variants) | Hadlock four-parameter (BPD + HC + AC + FL) |
 | NICHD | Hadlock three-parameter (HC + AC + FL) |
 | WHO | Hadlock three-parameter (HC + AC + FL) |
 | INTERGROWTH-21st | INTERGROWTH's own formula (AC + HC) |

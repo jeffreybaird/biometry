@@ -135,6 +135,14 @@ Ours reproduces the source at every point; theirs matches only at the median.
 The paper's Discussion and Table 3 both say 13%, supporting the table over the
 abstract. Active 2025 AJOG exchange.
 
+*Superseded 2026-08-15: the framing above is wrong. The published table is the
+artifact under suspicion — Roberts et al. (AJOG 2025;233:331.e1-11) and
+Gleason et al. (AJOG 2026;234:e59-e63) independently recalculated it from the
+body-text formula and favour the equation reading FetalGPS implements, with
+Roberts quantifying a 5.1% fetal-growth-restriction underdiagnosis rate for
+the table method. The library now carries both figures as chart variants
+(default: equation) and this finding moved out of tier 4. See FIXTURES.md.*
+
 ### 2. Formula selection is by input, not by chart
 
 FetalGPS picks the EFW formula from which measurements are present — BPD absent

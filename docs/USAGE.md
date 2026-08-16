@@ -57,10 +57,11 @@ bundle exec exe/biometry report --ga 32w0d \
 ```
 Growth  GA 32w0d  BPD 8.1  HC 29.6  AC 27.9  FL 6.1 cm
 
-  INTERGROWTH-21st  1,799 g —      57th  prescriptive  (AC+HC)
-  Hadlock 1991      1,881 g ±7.4%  39th  reference     (BPD+HC+AC+FL)
-  WHO (female)      1,878 g ±7.5%  53rd  reference     (HC+AC+FL)
-  NICHD (white)     1,878 g ±7.5%  38th  prescriptive  (HC+AC+FL)
+  INTERGROWTH-21st         1,799 g —      57th  prescriptive  (AC+HC)
+  Hadlock 1991 (equation)  1,881 g ±7.4%  39th  reference     (BPD+HC+AC+FL)
+  Hadlock 1991 (table)     1,881 g ±7.4%  39th  reference     (BPD+HC+AC+FL)
+  WHO (female)             1,878 g ±7.5%  53rd  reference     (HC+AC+FL)
+  NICHD (white)            1,878 g ±7.5%  38th  prescriptive  (HC+AC+FL)
 
   Sources:
     Stirnemann et al. 2017, Ultrasound Obstet Gynecol 49(4):478-486
@@ -73,6 +74,12 @@ Each Growth row is one standard's answer, and the columns are:
 
 1. **Standard** — which growth chart was read, with the chart variant in
    parentheses (the sex for WHO, the race/ethnicity group for NICHD).
+   Hadlock 1991 always prints two rows, `(equation)` and `(table)`, because
+   its source paper carries two irreconcilable spread figures and which to
+   use is a live clinical dispute — see
+   [the formulas document](FORMULAS.md#hadlock-1991--an-equation-chart)
+   and the README's validation notes. Near the 10th percentile the two rows
+   differ by about one percentile.
 2. **Weight** — the estimated fetal weight in grams, computed by the formula
    *that chart* was built on. The rows legitimately disagree: each chart is
    paired with its own formula, so the table carries up to three distinct
