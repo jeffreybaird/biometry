@@ -56,6 +56,8 @@ rows on purpose.
 | Document | What it covers |
 |---|---|
 | [docs/USAGE.md](docs/USAGE.md) | Every command-line option with worked examples: growth reports, pregnancy dating, due-date redating, JSON output, exit codes. |
+| [docs/LIBRARY.md](docs/LIBRARY.md) | Using the gem from a Ruby application: `Biometry.load` and the Context, thread safety, the catalog, reports as data, and how a web app maps Results to responses. |
+| [docs/CHART_DATA.md](docs/CHART_DATA.md) | The chart-data contract: centile curves per standard, the plotted point, GA-convention rules for the axis, and the refusals a consumer must handle. |
 | [docs/FORMULAS.md](docs/FORMULAS.md) | Every formula and variable explained for a non-medical reader: the measurements, the weight formulas, how each growth chart works, the dating arithmetic, the redating thresholds. |
 | [docs/FIXTURES.md](docs/FIXTURES.md) | How the test fixtures are tiered by what a failure means, and the rules for adding one. |
 | [docs/VALIDATION_TASK.md](docs/VALIDATION_TASK.md) | The brief the validation package was built from, kept as a record: the findings that must survive, and the open decisions with their resolutions. |
