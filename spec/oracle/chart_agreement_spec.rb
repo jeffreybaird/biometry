@@ -27,27 +27,24 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
   # sum is wrong the CSV and this spec have drifted apart, and every downstream
   # mismatch would be noise — fail here instead.
   #
-  # Two flags are short of the full 504, and each deficit is an exclusion we
-  # chose rather than an omission.
+  # WHO is 4 short of the other three, and that deficit is the out-of-band
+  # exclusion, not an omission. The WHO female chart at 22w publishes only the
+  # 5th–95th columns; those four rows' EFW of 560.1 g sits above the 95th's
+  # 557 g, where FetalGPSX clamps and FetalGPSR extrapolates, so there is no
+  # single FetalGPS answer to agree with. We report "above the 95th" and skip
+  # the comparison. See docs/FIXTURES.md.
   #
-  # WHO is 4 short: the out-of-band exclusion. The WHO female chart at 22w
-  # publishes only the 5th–95th columns; those four rows' EFW of 560.1 g sits
-  # above the 95th's 557 g, where FetalGPSX clamps and FetalGPSR extrapolates,
-  # so there is no single FetalGPS answer to agree with. We report "above the
-  # 95th" and skip the comparison.
-  #
-  # Hadlock is 144 short: the GA-convention exclusion. Those are the four
-  # gestations in the grid that are not a whole number of weeks, across all 36
-  # sex/race combinations. Our adapter reads at the paper's own convention —
-  # decimal weeks to the nearest tenth — while FetalGPS uses days/7 unrounded,
-  # and on a steep stretch of the median curve that rounding alone moves the
-  # centile by up to 1.6. It is a decision of ours against a decision of
-  # theirs, not an arithmetic disagreement: at whole weeks the equation
-  # variant agrees with FetalGPS to within 0.05 centiles across the whole
-  # grid, which is what the remaining 360 rows corroborate. Never widen the
-  # tolerance to take the excluded rows back in. See docs/FIXTURES.md.
+  # Hadlock is compared on every row. It briefly was not: our adapter read at
+  # the tenth of a week the paper codes its cohort at, FetalGPS at unrounded
+  # days/7, and the 144 rows whose gestation is not a whole week disagreed on
+  # the rounding alone — by up to 1.6 centiles where the median curve is
+  # steep. That was settled as a question about the paper rather than about
+  # the comparison: the tenth is how the data was recorded, not an
+  # instruction to round an input, so the adapter now evaluates unrounded too
+  # (data/hadlock_1991.yml, ga_note, 2026-08-15). Both sides read the same
+  # week, and the whole grid is comparable again.
   { 'compare_who' => 500, 'compare_nichd' => 504, 'compare_intergrowth' => 504,
-    'compare_hadlock' => 360 }
+    'compare_hadlock' => 504 }
     .each do |flag, expected|
       total = rows.sum { |row| row[flag].to_i }
       next if total == expected
@@ -132,11 +129,10 @@ RSpec.describe 'FetalGPS chart agreement (tier 3b)' do
     hadlock3_estimate(row).with(formula: :hadlock_bpd_hc_ac_fl)
   end
 
-  # GA reaches the adapter as a GestationalAge and it converts to decimal
-  # weeks at the tenth, which is the paper's own convention. The rows where
-  # that differs from FetalGPS's unrounded days/7 carry `compare_hadlock: 0`
-  # and generate no example, so what is compared here is the chart arithmetic
-  # and nothing else. See the guard's comment above.
+  # GA reaches the adapter as a GestationalAge and it converts to exact
+  # decimal weeks, which is the convention FetalGPS reads at too. So the only
+  # thing left between the two answers is the chart arithmetic, which is what
+  # this comparison is for.
   def hadlock_centile(row)
     charts[:hadlock_1991_equation]
       .call(estimate: relabelled_estimate(row), ga: ga_for(row))

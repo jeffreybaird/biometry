@@ -56,8 +56,8 @@ RSpec.shared_examples 'a chart that answers its guards in order' do |config|
   def paired = manifest[:paired_formula].to_sym
 
   # Both ends come from the manifest's own window, so no adapter's range is
-  # restated here. Two weeks past the last fitted one is outside it under all
-  # three GA conventions — completed, exact and tenth weeks alike.
+  # restated here. Two weeks past the last fitted one is outside it under
+  # either convention a chart evaluates at — completed and exact weeks alike.
   def out_of_window = Biometry::GestationalAge.from(weeks: manifest[:valid_ga_weeks].last + 2)
 
   def in_window = Biometry::GestationalAge.from(weeks: manifest[:valid_ga_weeks].first + 1)

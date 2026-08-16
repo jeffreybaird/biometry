@@ -523,10 +523,10 @@ RSpec.describe Biometry::Presentation::Report do
       expect(row('INTERGROWTH-21st')).to include('covers 22–40 weeks')
     end
 
-    # Three conventions reach the renderer for one gestation: completed weeks
-    # from the tables, tenth weeks from Hadlock 1991, exact weeks from
-    # INTERGROWTH. The conventions are real and --json keeps them; the block a
-    # reader is looking at should not spell 41 weeks two ways.
+    # Two conventions reach the renderer for one gestation: completed weeks
+    # from the two tables, exact weeks from the three closed forms. The
+    # conventions are real and --json keeps them; the block a reader is
+    # looking at should not spell 41 weeks two ways.
     it 'names the gestation the same way on every row' do
       given = growth_rows.map { |line| line[/given [\d.]+/] }
       expect(given.uniq).to eq(['given 41'])
@@ -539,9 +539,9 @@ RSpec.describe Biometry::Presentation::Report do
         expect(row('INTERGROWTH-21st')).to end_with('given 41.4')
       end
 
-      # 41w3d is 41.428... exact and 41.4 to the tenth on the two closed forms,
-      # and the completed week 41 on the two tables. Two statements, not four.
-      it 'reports the two conventions as two, rather than as four spellings' do
+      # 41w3d is 41.428... on the three closed forms and the completed week 41
+      # on the two tables. Two statements, not five.
+      it 'reports the two conventions as two, rather than as five spellings' do
         expect(growth_rows.map { |line| line[/given [\d.]+/] }.uniq)
           .to contain_exactly('given 41.4', 'given 41')
       end

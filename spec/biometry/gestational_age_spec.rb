@@ -78,7 +78,11 @@ RSpec.describe Biometry::GestationalAge do
     end
   end
 
-  # Hadlock 1991 reads decimal weeks rounded to the nearest tenth.
+  # Decimal weeks rounded to the nearest tenth: the way the Hadlock 1991
+  # cohort's ages were coded, and how a gestation is spelled when it is being
+  # printed rather than evaluated. No adapter reads at it — that chart
+  # evaluates at exact weeks (decided 2026-08-15) — but the conversion is a
+  # fact about the type and the dating derivations still express it.
   describe '#tenth_weeks' do
     it 'expresses 39w3d as 39.4' do
       expect(described_class.from(weeks: 39, days: 3).tenth_weeks).to eq(39.4)

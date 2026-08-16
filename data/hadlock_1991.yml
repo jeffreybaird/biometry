@@ -25,10 +25,14 @@ paired_formula_note: >
 valid_ga_weeks: [10, 40]
 valid_ga_weeks_note: "Model fitted 10-41 weeks; Table 1 published 10-40."
 
-ga_units: decimal_weeks_nearest_tenth
+ga_units: exact_weeks
 ga_note: >
-  The paper codes GA to the nearest tenth of a week: 39 weeks 3 days is coded
-  39.4, not 39.43. Round to one decimal before evaluating.
+  The paper codes its cohort's GA to the nearest tenth of a week (39 weeks
+  3 days is coded 39.4), but that describes how the data was recorded, not
+  an instruction to round inputs. Decided 2026-08-15: evaluate the closed
+  form at exact decimal weeks, unrounded — the same convention FetalGPS
+  uses. Rounding to a tenth moves the result by up to ~1.6 centiles where
+  the median curve is steep.
 
 stratification:
   field: null

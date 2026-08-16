@@ -40,11 +40,11 @@ RSpec.describe Biometry::Presentation::Reason do
   end
 
   # Each adapter reads at its standard's own convention — completed weeks on
-  # the tables, tenth weeks on Hadlock 1991, exact weeks on INTERGROWTH — so
-  # one gestation reaches this function as 41, 41.0 and 41.42857142857143. The
-  # conventions are real and the payload keeps them; the sentence should not
-  # spell the same gestation three ways in one block. Rendering happens here
-  # rather than in the services, so --json still carries the exact value.
+  # the tables, exact weeks on the closed forms — so one gestation reaches
+  # this function as 41, 41.0 and 41.42857142857143. The conventions are real
+  # and the payload keeps them; the sentence should not spell the same
+  # gestation three ways in one block. Rendering happens here rather than in
+  # the services, so --json still carries the exact value.
   describe 'a gestation outside the window a standard was fitted over' do
     it 'names the standard, its own window and the gestation given' do
       failure = [:out_of_range, { standard: :nichd, ga_weeks: 41, valid_range: [15, 40] }]

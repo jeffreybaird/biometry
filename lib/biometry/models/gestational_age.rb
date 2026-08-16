@@ -15,7 +15,9 @@ module Biometry
     # INTERGROWTH-21st: exact decimal weeks. 30+3 => 30.428571
     def exact_weeks = days / 7.0
 
-    # Hadlock 1991: decimal weeks to the nearest tenth. 39w3d => 39.4
+    # How the 1991 Hadlock paper coded its cohort's ages: decimal weeks to
+    # the nearest tenth, 39w3d => 39.4. Kept as a conversion; no adapter
+    # evaluates at it — Hadlock 1991 reads exact_weeks (decided 2026-08-15).
     def tenth_weeks = (days / 0.7).round / 10.0
 
     # NICHD, WHO: integer completed weeks.

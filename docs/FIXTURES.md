@@ -95,7 +95,7 @@ input <- read.csv("oracle_inputs.csv")
 write.csv(FetalGPS(input), "oracle_expected.csv")
 ```
 
-**Four controls the harness must apply, or every row disagrees for the wrong
+**Three controls the harness must apply, or every row disagrees for the wrong
 reason:**
 
 1. **Omit BPD when comparing WHO or NICHD.** FetalGPS selects the EFW formula by
@@ -116,12 +116,12 @@ reason:**
    `interp()` extrapolates a line through the outermost two centiles and clamps
    only afterwards. There is no single FetalGPS answer to agree with there.
 
-4. **Compare Hadlock only at whole-week gestational ages.** Our Hadlock 1991
-   adapter evaluates at decimal weeks rounded to the nearest tenth, the
-   convention the paper itself states; FetalGPS evaluates at unrounded
-   days/7. Where the two readings coincide (whole weeks) the equation
-   variant agrees with FetalGPS to within 0.05 centiles; where they differ
-   the gap is the GA convention, not the chart.
+(A fourth control existed briefly: restricting the Hadlock comparison to
+whole-week gestations, because our adapter then rounded GA to the paper's
+tenth-of-a-week coding while FetalGPS uses unrounded days/7. Resolved
+2026-08-15 by adopting the unrounded convention — the tenth coding describes
+how the 1991 cohort was recorded, not an input-rounding instruction — so
+every row now compares. See `data/hadlock_1991.yml` `ga_note`.)
 
 **A tier 3 mismatch is a question, not a task.** Keep it out of `rake verify` so
 no implementer resolves it alone.
@@ -164,14 +164,12 @@ thresholds: 7.7 (equation) against 8.7 (table) for a 1,600 g fetus at
 - tier 1 `hadlock_1991_variants` rows pin the gap between the variants, so
   neither can silently become the other — a stronger test than the old
   tier 4 rows, because it pins a decision rather than a disagreement;
-- the oracle chart comparison gained a `compare_hadlock` column: the
-  **equation** variant now agrees with FetalGPS to within 0.05 centiles at
-  every whole-week point of the grid, adding 360 rows of coverage that were
-  previously excluded. The 144 rows at non-whole-week gestational ages are
-  excluded (`compare_hadlock: 0`): there the residual gap — up to ~1.6
-  centiles where the median curve is steep — is our tenth-of-a-week GA
-  convention (the paper's own) against FetalGPS's unrounded days/7, a
-  documented decision rather than a chart disagreement.
+- the oracle chart comparison gained a `compare_hadlock` column on every
+  row: the **equation** variant agrees with FetalGPS to within 0.05
+  centiles across the whole 504-row grid, coverage that was previously
+  excluded entirely. (Full agreement required one further decision: GA is
+  evaluated as unrounded days/7 on both sides — see the note at the end of
+  the tier 3 section.)
 
 Caveat recorded in `data/hadlock_1991.yml`: that Roberts' "equation" method
 uses the abstract's 12.7% is inferred, not yet confirmed against the full

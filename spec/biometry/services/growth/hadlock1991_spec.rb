@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
 # Integration layer. Hadlock 1991 is the second equation standard, and it
-# differs from INTERGROWTH in every way that matters here: its dispersion is a
-# constant percentage of the median rather than an LMS triple, its GA
-# convention is decimal weeks to the nearest tenth, and its chart pairs with
-# the four-parameter Hadlock model rather than with itself.
+# differs from INTERGROWTH in two of the three ways that matter here: its
+# dispersion is a constant percentage of the median rather than an LMS triple,
+# and its chart pairs with the four-parameter Hadlock model rather than with
+# itself. Its GA convention is the third thing, and it is the same as
+# INTERGROWTH's: exact decimal weeks, unrounded. The paper codes its cohort to
+# the tenth of a week, which records how the data was collected rather than
+# instructing anyone to round an input (decided 2026-08-15, in the manifest's
+# ga_note).
 #
 # One paper, two dispersion figures, no erratum: the abstract prints 12.7% and
 # the published Table 1 implies 13.3%. Which is right is a contested clinical
@@ -221,8 +225,20 @@ RSpec.describe Biometry::Services::Growth::Hadlock1991 do
         expect(percentile.interpolation).to eq(:closed_form)
       end
 
-      it 'evaluates at decimal weeks to the nearest tenth, per the paper' do
-        expect(call(3000, weeks(39, 3), variant: variant).value!.ga_weeks).to eq(39.4)
+      # The paper codes its cohort's gestations to the tenth of a week, which
+      # says how the data was recorded rather than how the closed form is to
+      # be evaluated. It is evaluated unrounded — 39w3d is 39.428571..., not
+      # 39.4 — because rounding the input discards a distinction the equation
+      # can express, and does so unevenly: the shift is worth up to about 1.6
+      # centiles where the median curve is steep.
+      it 'evaluates at exact decimal weeks rather than rounding the gestation' do
+        expect(call(3000, weeks(39, 3), variant: variant).value!.ga_weeks)
+          .to eq(((39 * 7) + 3) / 7.0)
+      end
+
+      it 'does not read at the tenth the paper coded its cohort at' do
+        ga = weeks(39, 3)
+        expect(call(3000, ga, variant: variant).value!.ga_weeks).not_to eq(ga.tenth_weeks)
       end
 
       # The variant is the standard, not a footnote on it: a reader handed a
@@ -271,10 +287,13 @@ RSpec.describe Biometry::Services::Growth::Hadlock1991 do
         expect(call(3619, weeks(40), variant: variant)).to be_success
       end
 
+      # One day either side of the window, and the payload carries the week
+      # the chart was actually asked about: the exact one, unrounded, the same
+      # figure it would have evaluated at had the gestation been inside.
       it 'refuses a gestation below the window rather than extrapolating' do
         expect(call(30, weeks(9, 6), variant: variant).failure).to eq(
           [:out_of_range,
-           { standard: identity(variant), ga_weeks: 9.9,
+           { standard: identity(variant), ga_weeks: weeks(9, 6).exact_weeks,
              valid_range: manifest[:valid_ga_weeks] }]
         )
       end
@@ -282,9 +301,19 @@ RSpec.describe Biometry::Services::Growth::Hadlock1991 do
       it 'refuses a gestation one day past the window' do
         expect(call(3619, weeks(40, 1), variant: variant).failure).to eq(
           [:out_of_range,
-           { standard: identity(variant), ga_weeks: 40.1,
+           { standard: identity(variant), ga_weeks: weeks(40, 1).exact_weeks,
              valid_range: manifest[:valid_ga_weeks] }]
         )
+      end
+
+      # The tenth-week convention put 9w6d at 9.9 and 40w1d at 40.1, both
+      # outside the window; exact weeks puts them at 9.857 and 40.143, also
+      # outside. Nothing about which side of the edge these fall on depended
+      # on the rounding, which is why the two examples above still describe
+      # the same refusals they always did.
+      it 'refuses a day outside the window under either reading of the week' do
+        expect([weeks(9, 6), weeks(40, 1)].map(&:exact_weeks))
+          .to contain_exactly(a_value < 10, a_value > 40)
       end
     end
 

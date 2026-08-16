@@ -138,11 +138,16 @@ RSpec.describe Biometry::Services::Growth do
       expect(methods).to eq(%i[closed_form closed_form closed_form])
     end
 
-    # 32w4d is completed week 32 for the tables, 32.571428 exact weeks for
-    # INTERGROWTH and 32.6 to the nearest tenth for Hadlock 1991. One
-    # gestation, three conventions, converted once on the type.
+    # 32w4d is completed week 32 for the two tables and 32.571428 exact weeks
+    # for all three closed forms. One gestation, two conventions, converted
+    # once on the type — and the tables' is the only one that discards
+    # anything.
     it 'reads every standard at the same gestation, each in its own units' do
-      expect(rows.map(&:ga_weeks).minmax).to eq([32, 32.6])
+      expect(rows.map(&:ga_weeks).minmax).to eq([32, ga.exact_weeks])
+    end
+
+    it 'reads the closed forms at the exact week and the tables at the whole one' do
+      expect(rows.map(&:ga_weeks).uniq).to contain_exactly(32, ga.exact_weeks)
     end
 
     it 'disagrees, which is the output rather than a caveat on it' do

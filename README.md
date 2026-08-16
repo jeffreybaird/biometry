@@ -119,14 +119,10 @@ us with FetalGPS will fail the suite.
    oracle fixtures this affects are excluded from the chart-agreement
    comparison and marked in `spec/fixtures/oracle_charts.csv`.
 
-4. **Gestational-age ranges and conventions.** FetalGPS answers outside the
-   ranges the source papers published or fitted — for example NICHD at
-   10–42 weeks against a model fitted only from week 15 to 40. We refuse
-   with `out_of_range` there. And for the Hadlock 1991 chart we read
-   gestational age as decimal weeks rounded to the nearest tenth, the
-   paper's own stated convention, while FetalGPS uses unrounded days
-   divided by seven — worth up to about 1.6 percentiles at ages that are
-   not a whole week.
+4. **Gestational-age ranges.** FetalGPS answers outside the ranges the
+   source papers published or fitted — for example NICHD at 10–42 weeks
+   against a model fitted only from week 15 to 40. We refuse with
+   `out_of_range` there.
 
 5. **Defects in the source papers, encoded in `data/`.** Hadlock 1991's
    Table 1 prints 1,649 g for the 97th percentile at week 30 — impossibly

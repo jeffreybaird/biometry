@@ -52,9 +52,10 @@ age in different numeric forms, and the library converts deliberately:
 - *completed weeks* — whole weeks only, rounding down. 32 weeks and 6 days is
   still "week 32". The NICHD and WHO tables are published this way.
 - *exact decimal weeks* — 30 weeks and 3 days becomes 30 + 3⁄7 ≈ 30.428571.
-  The INTERGROWTH-21st equations are evaluated this way.
-- *decimal weeks to the nearest tenth* — 39 weeks 3 days becomes 39.4. The
-  Hadlock 1991 paper codes its ages this way, so this library does too.
+  The INTERGROWTH-21st and Hadlock 1991 equations are evaluated this way.
+  (The 1991 paper recorded its own cohort's ages rounded to a tenth of a
+  week — 39.4 for 39 weeks 3 days — but that describes its data collection,
+  not a rounding rule for inputs, so the library evaluates unrounded.)
 
 **Estimated fetal weight (EFW).** The weight, in grams, that a formula
 predicts from the measurements above. It is an estimate: the best formulas
@@ -205,7 +206,7 @@ the later NICHD study was a response to. Transcribed in
 
 The median (50th-percentile) weight follows one equation of gestational age,
 here called MA (menstrual age, the paper's term for gestational age), in
-decimal weeks to the nearest tenth:
+exact decimal weeks:
 
 ```
 ln(median weight in grams) = 0.578 + 0.332·MA − 0.00354·MA²

@@ -136,9 +136,9 @@ RSpec.describe 'the biometry report command' do
       expect(out).to include(citation('hadlock_1985'))
     end
 
-    # Completed weeks on the tables, tenth weeks on Hadlock 1991, exact weeks
-    # on INTERGROWTH: three conventions for one gestation, and the block a
-    # reader is looking at should not spell 41 weeks two ways.
+    # Completed weeks on the two tables, exact weeks on the three closed
+    # forms: two conventions for one gestation, and the block a reader is
+    # looking at should not spell 41 weeks two ways.
     it 'names the gestation the same way on every row' do
       _, out, = refused
       expect(growth_rows(out).map { |line| line[/given [\d.]+/] }.uniq).to eq(['given 41'])

@@ -9,9 +9,8 @@ module Biometry
       #
       # The second equation standard, and unlike INTERGROWTH in every way that
       # matters here: dispersion is a constant percentage of the median rather
-      # than an LMS triple, GA is decimal weeks to the nearest tenth, and the
-      # chart pairs with the four-parameter Hadlock model rather than with
-      # itself.
+      # than an LMS triple, and the chart pairs with the four-parameter
+      # Hadlock model rather than with itself.
       #
       # The paper carries two irreconcilable dispersion figures — 12.7% in the
       # abstract, 13.3% implied by its own Table 1 — and which to use is a
@@ -40,10 +39,16 @@ module Biometry
           @source = manifest[:source]
         end
 
+        # Evaluated at exact decimal weeks, not the paper's tenth-of-a-week
+        # coding. The 1991 paper codes its own data to the nearest tenth, but
+        # that is how its cohort was recorded, not an instruction to round
+        # inputs; evaluating the closed form exactly matches FetalGPS and
+        # avoids a rounding step worth up to ~1.6 centiles on the steep part
+        # of the median curve. Decided 2026-08-15.
         def call(estimate:, ga:)
           return mismatch(estimate) unless estimate.formula == paired
 
-          evaluate(estimate.value, ga.tenth_weeks)
+          evaluate(estimate.value, ga.exact_weeks)
         end
 
         private
@@ -83,7 +88,7 @@ module Biometry
           (grams - centre) / (centre * (sd_pct / 100.0))
         end
 
-        # MA is menstrual age in decimal weeks to the nearest tenth.
+        # MA is menstrual age in decimal weeks.
         def median(weeks)
           Math.exp(coefficients[:intercept] +
                    (coefficients[:ma] * weeks) +

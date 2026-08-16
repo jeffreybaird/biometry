@@ -247,9 +247,9 @@ RSpec.describe Biometry::Presentation::JsonReport do
     end
 
     # The table renders 41.42857142857143 as `41.4` so that one gestation is
-    # not spelled three ways in one block. That is a rendering decision and it
-    # stops at the renderer: the week INTERGROWTH actually evaluated at is the
-    # exact one, and a program must be handed it rather than a tenth.
+    # not spelled two ways in one block. That is a rendering decision and it
+    # stops at the renderer: the week the closed forms actually evaluated at
+    # is the exact one, and a program must be handed it rather than a tenth.
     context 'when the gestation is not a whole number of weeks' do
       let(:ga) { ComposedReport.ga_of(weeks: 41, days: 3) }
 
@@ -258,9 +258,14 @@ RSpec.describe Biometry::Presentation::JsonReport do
           .to be_within(1e-9).of(41.42857142857143)
       end
 
+      # Two conventions, not one: the three closed forms evaluate at the exact
+      # week and the two tables at the completed one. A document carrying a
+      # single figure for all five would be attributing a precision to the
+      # tables they never had, and a roundness to the closed forms they never
+      # applied.
       it 'carries each standard\'s own convention rather than one shared week' do
         weeks = growth_entries.map { |row| row.dig('error', 'details', 'ga_weeks') }
-        expect(weeks).to eq([41.42857142857143, 41.4, 41.4, 41, 41])
+        expect(weeks).to eq([41.42857142857143, 41.42857142857143, 41.42857142857143, 41, 41])
       end
     end
   end
