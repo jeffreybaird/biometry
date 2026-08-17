@@ -157,6 +157,35 @@ break it, write the real implementation now.
 unexpected failures. It does not override taking small steps through a red
 suite you deliberately created.
 
+### Agents
+
+Two subagents in `.claude/agents/` carry this workflow. Delegate to them by
+name; their frontmatter owns their tools and model.
+
+`spec-writer` opens a feature. Hand it the requirement and it decomposes that
+into failing tests at three layers — unit for pure logic, integration for
+module boundaries, acceptance for user-visible behavior end to end — matching
+the conventions of the specs already in `spec/`. It asserts on observable
+behavior and public interfaces only, never on call order, private names, or
+intermediate state, which would pin the implementation to a design nobody has
+chosen yet. It returns the files it created and an ordering plan grouping them
+into slices, with the dependencies between them. It writes specs; it does not
+implement against them.
+
+`test-runner` runs the suite, or exactly the single command you give it, and
+reports each failure verbatim: example description, file and line, the
+expected/actual block, and the first backtrace line pointing into `lib/` or
+`spec/`. It does not summarize, rank, diagnose, or fix, and it reads no source
+unless asked. Use it for every run, including the narrow repeated ones of
+"work one failure at a time", so what you read is what rspec printed.
+
+New specs go to `test-runner` before any implementation starts, to confirm each
+fails for the reason it is meant to. A spec that passes on its first run, or
+errors before reaching its assertion, specifies nothing yet.
+
+Delegation does not relax the rules above: no agent edits, weakens, or deletes
+a spec to reach green.
+
 ## Git
 
 Trunk-based off `main`. Short-lived branches, rebase rather than merge, no
