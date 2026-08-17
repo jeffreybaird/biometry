@@ -1,0 +1,2 @@
+- [Consensus review themes](project-consensus-review-themes.md) — recurring defect classes in the Consensus web UI (../consensus) worth checking first on every review.
+- [Biometry contract docs](reference-biometry-contract-docs.md) — where the gem's consumer contracts live and what they constrain in downstream apps.
